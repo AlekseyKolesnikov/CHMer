@@ -1,6 +1,6 @@
 CHMer
 
-A simple CHM creating tool.
+A simple CHM creation tool.
 
 Requires Microsoft HTML Help Workshop (https://www.microsoft.com/en-us/download/details.aspx?id=21138)
 
