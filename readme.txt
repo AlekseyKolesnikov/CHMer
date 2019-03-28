@@ -7,3 +7,4 @@ Requires Microsoft HTML Help Workshop (https://www.microsoft.com/en-us/download/
 Uses: 
   * SynEdit (https://github.com/SynEdit/SynEdit)
   * Rx Library (http://www.micrel.cz/RxLib/dfiles.htm)
+  * HyperParse by Winston Kotzan (included)
