@@ -10,8 +10,8 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, ExtCtrls, ToolWin, ComCtrls, Grids, ImgList, OleCtrls,
-  SHDocVw, SynEditHighlighter, SynHighlighterHtml, SynEdit, StdCtrls, System.ImageList, Vcl.Menus, System.Actions, Vcl.ActnList,
-  uHelpProject, RxPlacemnt;
+  SHDocVw, SynEditHighlighter, SynHighlighterHtml, SynEdit, StdCtrls, System.ImageList, Vcl.Menus, System.Actions, Vcl.ActnList, RxPlacemnt,
+  uHelpProject;
 
 type
   TfrmMain = class(TForm)

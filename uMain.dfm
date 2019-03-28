@@ -281,6 +281,7 @@ object frmMain: TfrmMain
         Top = 0
         Width = 300
         Height = 340
+        Hint = 'Double-click to edit'
         Align = alClient
         ColCount = 2
         DefaultRowHeight = 20
@@ -434,6 +435,10 @@ object frmMain: TfrmMain
         Width = 884
         Height = 160
         Align = alClient
+        BevelInner = bvNone
+        BevelKind = bkFlat
+        BevelOuter = bvRaised
+        BorderStyle = bsNone
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -12
@@ -557,6 +562,7 @@ object frmMain: TfrmMain
             Width = 876
             Height = 376
             Align = alClient
+            ScrollBars = ssBoth
             TabOrder = 0
             OnChange = memKeyWordsChange
           end
@@ -568,7 +574,7 @@ object frmMain: TfrmMain
     Left = 208
     Top = 128
     Bitmap = {
-      494C01012C005000800010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01012C005000840010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       000000000000360000002800000040000000C0000000010020000000000000C0
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -2163,8 +2169,8 @@ object frmMain: TfrmMain
     Options.AutoDetectEnabled = False
     Options.AutoDetectLineLimit = 0
     Options.Visible = False
-    Left = 480
-    Top = 136
+    Left = 472
+    Top = 144
   end
   object pmProjectTree: TPopupMenu
     Images = ilPopup
@@ -2217,8 +2223,8 @@ object frmMain: TfrmMain
     end
   end
   object alActionList: TActionList
-    Left = 539
-    Top = 6
+    Left = 635
+    Top = 142
     object actProjectCreate: TAction
       Caption = 'Create'
       Hint = 'Create'
@@ -2334,10 +2340,10 @@ object frmMain: TfrmMain
   object ilNormal: TImageList
     Height = 24
     Width = 24
-    Left = 643
-    Top = 8
+    Left = 699
+    Top = 144
     Bitmap = {
-      494C0101070020006C0018001800FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010107002000700018001800FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000600000003000000001002000000000000048
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -2941,10 +2947,10 @@ object frmMain: TfrmMain
   object ilGrayed: TImageList
     Height = 24
     Width = 24
-    Left = 715
-    Top = 8
+    Left = 771
+    Top = 144
     Bitmap = {
-      494C010107009800540018001800FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010107009800580018001800FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000600000003000000001002000000000000048
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -3550,7 +3556,7 @@ object frmMain: TfrmMain
     Left = 211
     Top = 196
     Bitmap = {
-      494C01010A005800780010001000FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C01010A0058007C0010001000FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000003000000001002000000000000030
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -3957,8 +3963,8 @@ object frmMain: TfrmMain
     DefaultExt = '*.hhp'
     Filter = 'HTML Help Workshop projects|*.hhp'
     Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
-    Left = 811
-    Top = 4
+    Left = 867
+    Top = 140
   end
   object pmProperties: TPopupMenu
     Images = ilPopup
@@ -3990,14 +3996,14 @@ object frmMain: TfrmMain
     DefaultExt = 'hhc.exe'
     Filter = 'HTML Help compiler|hhc.exe'
     Options = [ofHideReadOnly, ofFileMustExist, ofEnableSizing]
-    Left = 299
-    Top = 4
+    Left = 555
+    Top = 140
   end
   object dlgSaveProject: TSaveDialog
     DefaultExt = '*.hhp'
     Filter = 'HTML Help Workshop projects|*.hhp'
-    Left = 892
-    Top = 4
+    Left = 948
+    Top = 140
   end
   object fsLayout: TFormStorage
     IniFileName = 'SOFTWARE'
@@ -4006,7 +4012,7 @@ object frmMain: TfrmMain
       'pnProperties.Height'
       'pnInfo.Height')
     StoredValues = <>
-    Left = 979
-    Top = 4
+    Left = 1035
+    Top = 140
   end
 end
