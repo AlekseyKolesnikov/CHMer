@@ -6,6 +6,7 @@ object frmSelectImage: TfrmSelectImage
   ClientHeight = 345
   ClientWidth = 542
   Color = clBtnFace
+  DoubleBuffered = True
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
@@ -40,8 +41,6 @@ object frmSelectImage: TfrmSelectImage
     Default = True
     ModalResult = 1
     TabOrder = 1
-    ExplicitLeft = 480
-    ExplicitTop = 292
   end
   object btnCancel: TButton
     Left = 459
@@ -53,7 +52,5 @@ object frmSelectImage: TfrmSelectImage
     Caption = 'Cancel'
     ModalResult = 2
     TabOrder = 2
-    ExplicitLeft = 561
-    ExplicitTop = 292
   end
 end

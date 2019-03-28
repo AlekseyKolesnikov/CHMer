@@ -1,15 +1,12 @@
 program CHMer;
 
 uses
-  madExcept,
-  madLinkDisAsm,
-  madListHardware,
-  madListProcesses,
-  madListModules,
   Forms,
   uMain in 'uMain.pas' {frmMain},
   uHelpProject in 'uHelpProject.pas',
-  uSelectImage in 'uSelectImage.pas' {frmSelectImage};
+  uSelectImage in 'uSelectImage.pas' {frmSelectImage},
+  uAddProperty in 'uAddProperty.pas' {frmAddProperty},
+  uSettings in 'uSettings.pas' {frmSettings};
 
 {$R *.res}
 

@@ -2,7 +2,7 @@ unit HTMLTools;
 
 interface
 
-function GetTagText(html, tag: String): String;
+function GetTagText(html, tag: String; Convert: Boolean = True): String;
 function FromHTML(html: String): String;
 function ToHTML(S: String): String;
 
@@ -53,7 +53,7 @@ const
     '&rang;', '&loz;', '&spades;', '&clubs;', '&hearts;', '&diams;'
   );
 
-function GetTagText(html, tag: String): String;
+function GetTagText(html, tag: String; Convert: Boolean = True): String;
 var
   i: Integer;
   LowerHTML: String;
@@ -76,7 +76,10 @@ begin
 
   Delete(html, 1, i + Length(tag) + 1);
 
-  Result := FromHTML(html);
+  if Convert then
+    html := FromHTML(html);
+
+  Result := html;
 end;
 
 function FromHTML(html: String): String;

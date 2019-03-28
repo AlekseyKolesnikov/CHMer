@@ -18,10 +18,12 @@ type
     function LoadHHP(FileName: String): Boolean;
   public
     PrjDir, ProjectFile: String;
+    Modified: Boolean;
 
     constructor Create(FileName: String; ProjectTree: TTreeNodes);
     destructor Destroy; override;
-    procedure Save;
+    procedure CreateEmptyProject;
+    procedure Save(FileName: String = ''; AddContents: Boolean = False);
   end;
 
   TCHMData = class abstract
@@ -87,13 +89,54 @@ begin
 
   ProjectItems := ProjectTree;
   ProjectFile := FileName;
-  PrjDir := ExtractFilePath(FileName);
 
-  if LoadHHP(FileName) then
+  if FileName = '' then
   begin
-    LoadHHC(PrjDir + FileHHC);
-    LoadHHK(PrjDir + FileHHK);
+    PrjDir := '';
+    CreateEmptyProject;
+  end
+  else
+  begin
+    PrjDir := ExtractFilePath(FileName);
+    if LoadHHP(FileName) then
+    begin
+      LoadHHC(PrjDir + FileHHC);
+      LoadHHK(PrjDir + FileHHK);
+    end;
   end;
+
+  Modified := False;
+end;
+
+procedure TProject.CreateEmptyProject;
+var
+  RootNode: TTreeNode;
+  Data: TProjectData;
+begin
+  RootNode := ProjectItems.AddChild(nil, 'Project properties');
+  RootNode.ImageIndex := 43;
+  RootNode.SelectedIndex := 43;
+
+  Data := TProjectData.Create;
+  RootNode.Data := Data;
+
+  Data.slProject.AddPair('Compatibility', '1.1 or later');
+  Data.slProject.AddPair('Compiled file', '');
+  Data.slProject.AddPair('Contents file', '');
+  Data.slProject.AddPair('Default font', ',8,0');
+  Data.slProject.AddPair('Default topic', '');
+  Data.slProject.AddPair('Full-text search', 'Yes');
+  Data.slProject.AddPair('Index file', '');
+  Data.slProject.AddPair('Language', '0x409 English (United States)');
+  Data.slProject.AddPair('Title', '');
+
+  Data.slContent.AddPair('FrameName', 'right');
+  Data.slContent.AddPair('Font', ',8,0');
+  Data.slContent.AddPair('ImageType', 'Book');
+  Data.slContent.AddPair('Window Styles', '0x27');
+  Data.slContent.AddPair('ExWindow Styles', '0x0');
+
+  Data.slKeyWords.AddPair('Font', ',8,0');
 end;
 
 destructor TProject.Destroy;
@@ -309,7 +352,7 @@ begin
   Result := False;
   ini := TMemIniFile.Create(FileName);
 
-  FileHHC := ini.ReadString('OPTIONS', 'Contents file', ChangeFileExt(FileName, '.hhc'));
+  FileHHC := ini.ReadString('OPTIONS', 'Contents file', ExtractFileName(ChangeFileExt(FileName, '.hhc')));
 
   if not FileExists(PrjDir + FileHHC) then
   begin
@@ -319,7 +362,7 @@ begin
     Exit;
   end;
 
-  FileHHK := ini.ReadString('OPTIONS', 'Index file', ChangeFileExt(FileName, '.hhk'));
+  FileHHK := ini.ReadString('OPTIONS', 'Index file', ExtractFileName(ChangeFileExt(FileName, '.hhk')));
 
   RootNode := ProjectItems.AddChild(nil, 'Project properties');
   RootNode.ImageIndex := 43;
@@ -330,11 +373,14 @@ begin
 
   ini.ReadSectionValues('OPTIONS', Data.slProject);
 
+  Data.slProject.Values['Contents file'] := FileHHC;
+  Data.slProject.Values['Index file'] := FileHHK;
+
   FreeAndNil(ini);
   Result := True;
 end;
 
-procedure TProject.Save;
+procedure TProject.Save(FileName: String = ''; AddContents: Boolean = False);
 var
   slHHP, slHHC, slHHK: TStringList;
 
@@ -352,7 +398,8 @@ var
       slHHC.Add('<LI><OBJECT type="text/sitemap">');
       slHHC.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name) + '">');
       slHHC.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL) + '">');
-      slHHC.Add('  <param name="ImageNumber" value="' + ObjectData.ImageIndex + '">');
+      if ObjectData.ImageIndex <> '' then
+        slHHC.Add('  <param name="ImageNumber" value="' + ObjectData.ImageIndex + '">');
       slHHC.Add('</OBJECT>');
 
       for i := 0 to ObjectData.slKeyWords.Count - 1 do
@@ -362,6 +409,15 @@ var
         slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name) + '">');
         slHHK.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL) + '">');
         slHHK.Add('</OBJECT>');
+
+        if AddContents then
+        begin
+          slHHK.Add('<LI><OBJECT type="text/sitemap">');
+          slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name) + '">');
+          slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name) + '">');
+          slHHK.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL) + '">');
+          slHHK.Add('</OBJECT>');
+        end;
       end;
     end;
 
@@ -378,7 +434,30 @@ var
   ProjectData: TProjectData;
   i: Integer;
 begin
+  if FileName <> '' then
+  begin
+    ProjectFile := FileName;
+    PrjDir := ExtractFilePath(ProjectFile);
+  end;
+
+  if ProjectFile = '' then
+    Exit;
+
   ProjectData := TProjectData(ProjectItems[0].Data);
+
+  FileHHC := ProjectData.slProject.Values['Contents file'];
+  if FileHHC = '' then
+  begin
+    FileHHC := ExtractFileName(ChangeFileExt(FileName, '.hhc'));
+    ProjectData.slProject.Values['Contents file'] := FileHHC;
+  end;
+
+  FileHHK := ProjectData.slProject.Values['Index file'];
+  if FileHHK = '' then
+  begin
+    FileHHK := ExtractFileName(ChangeFileExt(FileName, '.hhk'));
+    ProjectData.slProject.Values['Index file'] := FileHHK;
+  end;
 
   DeleteFile(ProjectFile);
 
@@ -445,6 +524,8 @@ begin
   FreeAndNil(slHHC);
   FreeAndNil(slHHK);
   FreeAndNil(slHHP);
+
+  Modified := False;
 end;
 
 { TProjectData }
