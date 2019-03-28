@@ -47,10 +47,11 @@ type
     function GetPropsCount: Integer; override;
   end;
 
+
 implementation
 
 uses
-  SysUtils, XMLDoc, Dialogs, IniFiles, HyperParse, HTMLTools;
+  SysUtils, StrUtils, XMLDoc, Dialogs, IniFiles, HyperParse, HTMLTools;
 
 function GetTypeHHC(info: THtmlInfo): THHCType;
 var
@@ -405,7 +406,7 @@ var
       for i := 0 to ObjectData.slKeyWords.Count - 1 do
       begin
         slHHK.Add('<LI><OBJECT type="text/sitemap">');
-        slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.slKeyWords[i]) + '">');
+        slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.slKeyWords[i]) + IfThen(ObjectData.slKeyWords[i] = ObjectData.Name, ' ') + '">');
         slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name) + '">');
         slHHK.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL) + '">');
         slHHK.Add('</OBJECT>');
@@ -527,6 +528,7 @@ begin
 
   Modified := False;
 end;
+
 
 { TProjectData }
 

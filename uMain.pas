@@ -1,6 +1,7 @@
 unit uMain;
 
 // TODO:
+// - setting: add content name to keywords if keywords are empty
 // - input fields validation
 // - dictionaries (select from list)
 // - extend "project was modified" dialog
@@ -136,6 +137,7 @@ type
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure actCheckNotUsedExecute(Sender: TObject);
     procedure btnSettingsClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
   private
     { Private declarations }
     Project: TProject;
@@ -177,7 +179,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0';
+  sVersion = ' 1.0.1';
 
 function GetFileList(Path: String; Masks: array of String): TStringList;
 var
@@ -604,6 +606,15 @@ begin
   Project := nil;
 
   SelectedObjectData := nil;
+
+  sgProperties.Cells[0, 0] := '[properties]';
+end;
+
+procedure TfrmMain.FormShow(Sender: TObject);
+begin
+  Self.OnShow := nil;
+  if (ParamCount > 0) and (FileExists(ParamStr(1))) then
+    LoadProject(ParamStr(1));
 end;
 
 function TfrmMain.GetAddContents: Boolean;
@@ -1143,7 +1154,6 @@ begin
 
   sgProperties.RowCount := CHMData.GetPropsCount + 1;
 
-  sgProperties.Cells[0, 0] := '[properties]';
   sgProperties.Cells[1, 0] := '[' + tvProjectTree.Selected.Text + ']';
 
   sgProperties.FixedRows := 1;
