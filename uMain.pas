@@ -1,7 +1,6 @@
 unit uMain;
 
 // TODO:
-// - setting: add content name to keywords if keywords are empty
 // - input fields validation
 // - dictionaries (select from list)
 // - extend "project was modified" dialog
@@ -143,10 +142,11 @@ type
     Project: TProject;
     SelectedObjectData: TObjectData;
 
-    function AddObject: TObjectData;
+    function AddObject(FileName: string): TObjectData;
     procedure CloseProject;
     function ExecInMemo(CommandLine, Dir: string; Memo: TMemo; Show: Integer; Debug: Boolean = False): Cardinal;
     function GetAddContents: Boolean;
+    function GetAddIfEmpty: Boolean;
     function GetHHC(Request: Boolean = True): String;
     procedure InitProjectData(ProjectData: TProjectData);
     procedure LoadProject(FileName: String);
@@ -179,7 +179,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.1';
+  sVersion = ' 1.0.2';
 
 function GetFileList(Path: String; Masks: array of String): TStringList;
 var
@@ -294,8 +294,19 @@ begin
   CloseProject;
 
   Project := TProject.Create('', tvProjectTree.Items);
+
+  actProjectSaveExecute(nil);
+
+  if Project.ProjectFile = '' then
+  begin
+    CloseProject;
+    Exit;
+  end;
+
   tvProjectTree.Selected := tvProjectTree.Items[0];
-  Project.Modified := True;
+
+  Self.Caption := sTitle + sVersion + ': ' + ExtractFileName(Project.ProjectFile);
+  Application.Title := sTitle + ': ' + ExtractFileName(Project.ProjectFile);
 end;
 
 procedure TfrmMain.actProjectLoadExecute(Sender: TObject);
@@ -307,7 +318,7 @@ end;
 procedure TfrmMain.actProjectSaveExecute(Sender: TObject);
 var
   ProjectData: TProjectData;
-  AddContents: Boolean;
+  AddContents, AddIfEmpty: Boolean;
 begin
   if not Assigned(Project) then
     Exit;
@@ -317,11 +328,12 @@ begin
       Exit;
 
   AddContents := GetAddContents;
+  AddIfEmpty := GetAddIfEmpty;
 
   if Project.ProjectFile = '' then
-    Project.Save(dlgSaveProject.FileName, AddContents)
+    Project.Save(dlgSaveProject.FileName, AddContents, AddIfEmpty)
   else
-    Project.Save('', AddContents);
+    Project.Save('', AddContents, AddIfEmpty);
 
   if tvProjectTree.Selected = tvProjectTree.Items[0] then
   begin
@@ -391,31 +403,28 @@ begin
   end;
 end;
 
-function TfrmMain.AddObject: TObjectData;
+function TfrmMain.AddObject(FileName: string): TObjectData;
 var
   slHTML: TStringList;
   aName: string;
 begin
-  Result := nil;
+  slHTML := TStringList.Create;
 
-  if dlgOpenHTML.Execute then
-  begin
-    Result := TObjectData.Create;
-    Result.URL := ExtractFileName(dlgOpenHTML.FileName);
-    Result.ImageIndex := '11';
+  Result := TObjectData.Create;
+  Result.URL := ExtractFileName(FileName);
+  Result.ImageIndex := '11';
 
-    slHTML := TStringList.Create;
-    slHTML.LoadFromFile(dlgOpenHTML.FileName);
+  slHTML.LoadFromFile(FileName);
 
-    aName := GetTagText(slHTML.Text, 'title');
-    if aName = '' then
-      aName := GetTagText(slHTML.Text, 'h1');
-    if aName = '' then
-      aName := GetTagText(slHTML.Text, 'h2');
+  aName := GetTagText(slHTML.Text, 'title');
+  if aName = '' then
+    aName := GetTagText(slHTML.Text, 'h1');
+  if aName = '' then
+    aName := GetTagText(slHTML.Text, 'h2');
 
-    Result.Name := aName;
-    slHTML.Free;
-  end;
+  Result.Name := aName;
+
+  slHTML.Free;
 end;
 
 procedure TfrmMain.btnSettingsClick(Sender: TObject);
@@ -426,6 +435,7 @@ begin
   frmSettings := TfrmSettings.Create(Self);
   frmSettings.edHHC.FileName := GetHHC(False);
   frmSettings.chbAddContents.Checked := GetAddContents;
+  frmSettings.chbAddIfEmpty.Checked := GetAddIfEmpty;
 
   if frmSettings.ShowModal = mrOk then
   begin
@@ -437,6 +447,7 @@ begin
     begin
       reg.WriteString('', 'HHC', frmSettings.edHHC.FileName);
       reg.WriteBool('', 'AddContents', frmSettings.chbAddContents.Checked);
+      reg.WriteBool('', 'AddIfEmpty', frmSettings.chbAddIfEmpty.Checked);
     end;
 
     reg.Free;
@@ -633,6 +644,22 @@ begin
   reg.Free;
 end;
 
+function TfrmMain.GetAddIfEmpty: Boolean;
+var
+  reg: TRegIniFile;
+begin
+  Result := False;
+
+  reg := TRegIniFile.Create;
+
+  reg.RootKey := HKEY_CURRENT_USER;
+
+  if reg.OpenKeyReadOnly('Software\CHMer') then
+    Result := reg.ReadBool('', 'AddIfEmpty', False);
+
+  reg.Free;
+end;
+
 function TfrmMain.GetHHC(Request: Boolean = True): String;
 var
   reg: TRegIniFile;
@@ -759,66 +786,107 @@ procedure TfrmMain.miAddAfterClick(Sender: TObject);
 var
   DataObject: TObjectData;
   aNode: TTreeNode;
+  i: Integer;
 begin
-  DataObject := AddObject;
-  if not Assigned(DataObject) then
-    Exit;
+  try
+    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
 
-  aNode := tvProjectTree.Selected.getNextSibling;
-  if Assigned(aNode) then
-    aNode := tvProjectTree.Items.Insert(aNode, DataObject.Name)
-  else
-    aNode := tvProjectTree.Items.Add(tvProjectTree.Selected, DataObject.Name);
-  aNode.Data := DataObject;
-  aNode.ImageIndex := 11;
-  aNode.SelectedIndex := 11;
+    if dlgOpenHTML.Execute then
+    begin
+      aNode := tvProjectTree.Selected;
 
-  tvProjectTree.Selected := aNode;
-  Project.Modified := True;
+      for i := 0 to dlgOpenHTML.Files.Count - 1 do
+      begin
+        DataObject := AddObject(dlgOpenHTML.Files[i]);
+
+        aNode := tvProjectTree.Selected.getNextSibling;
+
+        if Assigned(aNode) then
+          aNode := tvProjectTree.Items.Insert(aNode, DataObject.Name)
+        else
+          aNode := tvProjectTree.Items.Add(tvProjectTree.Selected, DataObject.Name);
+
+        aNode.Data := DataObject;
+        aNode.ImageIndex := 11;
+        aNode.SelectedIndex := 11;
+      end;
+
+      tvProjectTree.Selected := aNode;
+      Project.Modified := True;
+    end;
+  finally
+    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
+  end;
 end;
 
 procedure TfrmMain.miAddBeforeClick(Sender: TObject);
 var
   DataObject: TObjectData;
   aNode: TTreeNode;
+  i: Integer;
 begin
-  DataObject := AddObject;
-  if not Assigned(DataObject) then
-    Exit;
+  try
+    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
 
-  aNode := tvProjectTree.Items.Insert(tvProjectTree.Selected, DataObject.Name);
-  aNode.Data := DataObject;
-  aNode.ImageIndex := 11;
-  aNode.SelectedIndex := 11;
+    if dlgOpenHTML.Execute then
+    begin
+      aNode := tvProjectTree.Selected;
 
-  tvProjectTree.Selected := aNode;
-  Project.Modified := True;
+      for i := 0 to dlgOpenHTML.Files.Count - 1 do
+      begin
+        DataObject := AddObject(dlgOpenHTML.Files[i]);
+
+        aNode := tvProjectTree.Items.Insert(tvProjectTree.Selected, DataObject.Name);
+        aNode.Data := DataObject;
+        aNode.ImageIndex := 11;
+        aNode.SelectedIndex := 11;
+      end;
+
+      tvProjectTree.Selected := aNode;
+      Project.Modified := True;
+    end;
+  finally
+    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
+  end;
 end;
 
 procedure TfrmMain.miAddChildClick(Sender: TObject);
 var
   DataObject: TObjectData;
   aNode: TTreeNode;
+  i: Integer;
 begin
-  DataObject := AddObject;
-  if not Assigned(DataObject) then
-    Exit;
-
   tvProjectTree.Selected.Expand(False);
-  if (not tvProjectTree.Selected.HasChildren) and (tvProjectTree.Selected <> tvProjectTree.Items[0]) then
-  begin
-    TObjectData(tvProjectTree.Selected.Data).ImageIndex := '1';
-    tvProjectTree.Selected.ImageIndex := 1;
-    tvProjectTree.Selected.SelectedIndex := 1;
+  try
+    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
+
+    if dlgOpenHTML.Execute then
+    begin
+      aNode := tvProjectTree.Selected;
+
+      for i := 0 to dlgOpenHTML.Files.Count - 1 do
+      begin
+        DataObject := AddObject(dlgOpenHTML.Files[i]);
+
+        if (not tvProjectTree.Selected.HasChildren) and (tvProjectTree.Selected <> tvProjectTree.Items[0]) then
+        begin
+          TObjectData(tvProjectTree.Selected.Data).ImageIndex := '1';
+          tvProjectTree.Selected.ImageIndex := 1;
+          tvProjectTree.Selected.SelectedIndex := 1;
+        end;
+
+        aNode := tvProjectTree.Items.AddChild(tvProjectTree.Selected, DataObject.Name);
+        aNode.Data := DataObject;
+        aNode.ImageIndex := 11;
+        aNode.SelectedIndex := 11;
+      end;
+
+      tvProjectTree.Selected := aNode;
+      Project.Modified := True;
+    end;
+  finally
+    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
   end;
-
-  aNode := tvProjectTree.Items.AddChild(tvProjectTree.Selected, DataObject.Name);
-  aNode.Data := DataObject;
-  aNode.ImageIndex := 11;
-  aNode.SelectedIndex := 11;
-
-  tvProjectTree.Selected := aNode;
-  Project.Modified := True;
 end;
 
 procedure TfrmMain.miCollapseAllClick(Sender: TObject);
@@ -849,24 +917,44 @@ end;
 procedure TfrmMain.miLevelDownClick(Sender: TObject);
 var
   aNode: TTreeNode;
+  HasChildren: Boolean;
 begin
   aNode := tvProjectTree.Selected.getPrevSibling;
   if not Assigned(aNode) then
     Exit;
 
+  HasChildren := aNode.HasChildren;
+
   tvProjectTree.Selected.MoveTo(aNode, naAddChildFirst);
+
+  if not HasChildren then
+  begin
+    aNode.ImageIndex := 1;
+    aNode.SelectedIndex := 1;
+  end;
+
   Project.Modified := True;
 end;
 
 procedure TfrmMain.miLevelInsideClick(Sender: TObject);
 var
   aNode: TTreeNode;
+  HasChildren: Boolean;
 begin
   aNode := tvProjectTree.Selected.getNextSibling;
   if not Assigned(aNode) then
     Exit;
 
+  HasChildren := aNode.HasChildren;
+
   tvProjectTree.Selected.MoveTo(aNode, naAddChildFirst);
+
+  if not HasChildren then
+  begin
+    aNode.ImageIndex := 1;
+    aNode.SelectedIndex := 1;
+  end;
+
   Project.Modified := True;
 end;
 
@@ -879,6 +967,13 @@ begin
     Exit;
 
   tvProjectTree.Selected.MoveTo(aNode, naInsert);
+
+  if (not aNode.HasChildren) and (not tvProjectTree.Selected.HasChildren) then
+  begin
+    aNode.ImageIndex := tvProjectTree.Selected.ImageIndex;
+    aNode.SelectedIndex := tvProjectTree.Selected.SelectedIndex;
+  end;
+
   Project.Modified := True;
 end;
 

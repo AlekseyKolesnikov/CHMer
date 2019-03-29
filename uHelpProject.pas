@@ -23,7 +23,7 @@ type
     constructor Create(FileName: String; ProjectTree: TTreeNodes);
     destructor Destroy; override;
     procedure CreateEmptyProject;
-    procedure Save(FileName: String = ''; AddContents: Boolean = False);
+    procedure Save(FileName: String = ''; AddContents: Boolean = False; AddIfEmpty: Boolean = False);
   end;
 
   TCHMData = class abstract
@@ -381,7 +381,7 @@ begin
   Result := True;
 end;
 
-procedure TProject.Save(FileName: String = ''; AddContents: Boolean = False);
+procedure TProject.Save(FileName: String = ''; AddContents: Boolean = False; AddIfEmpty: Boolean = False);
 var
   slHHP, slHHC, slHHK: TStringList;
 
@@ -410,15 +410,15 @@ var
         slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name) + '">');
         slHHK.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL) + '">');
         slHHK.Add('</OBJECT>');
+      end;
 
-        if AddContents then
-        begin
-          slHHK.Add('<LI><OBJECT type="text/sitemap">');
-          slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name) + '">');
-          slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name) + '">');
-          slHHK.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL) + '">');
-          slHHK.Add('</OBJECT>');
-        end;
+      if AddContents and ((not AddIfEmpty) or (ObjectData.slKeyWords.Count = 0)) then
+      begin
+        slHHK.Add('<LI><OBJECT type="text/sitemap">');
+        slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name) + '">');
+        slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name) + '">');
+        slHHK.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL) + '">');
+        slHHK.Add('</OBJECT>');
       end;
     end;
 

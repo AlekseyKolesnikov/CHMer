@@ -13,6 +13,7 @@ type
     chbAddContents: TCheckBox;
     btnOK: TButton;
     btnCancel: TButton;
+    chbAddIfEmpty: TCheckBox;
   private
     { Private declarations }
   public
