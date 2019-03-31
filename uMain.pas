@@ -15,8 +15,6 @@ uses
 
 type
   TfrmMain = class(TForm)
-    pnTop: TPanel;
-    tbMain: TToolBar;
     pnLeft: TPanel;
     splVertical: TSplitter;
     pnRight: TPanel;
@@ -39,11 +37,6 @@ type
     memKeyWords: TMemo;
     pnHTMLTop: TPanel;
     tbHTML: TToolBar;
-    btnProjectCreate: TToolButton;
-    btnProjectLoad: TToolButton;
-    btnProjectSave: TToolButton;
-    ToolButton2: TToolButton;
-    btnProjectCompile: TToolButton;
     btnHTMLSave: TToolButton;
     pmProjectTree: TPopupMenu;
     miAddBefore: TMenuItem;
@@ -97,15 +90,23 @@ type
     N4: TMenuItem;
     miExpandAll: TMenuItem;
     miCollapseAll: TMenuItem;
-    ToolButton4: TToolButton;
-    btnUpdateHTML: TToolButton;
     actUpdateHTML: TAction;
     dlgSaveProject: TSaveDialog;
     fsLayout: TFormStorage;
-    btnCheckNotUsed: TToolButton;
     actCheckNotUsed: TAction;
+    pnTop: TPanel;
+    tbMain: TToolBar;
+    btnProjectCreate: TToolButton;
+    btnProjectLoad: TToolButton;
+    btnProjectSave: TToolButton;
+    ToolButton4: TToolButton;
     btnSettings: TToolButton;
     ToolButton3: TToolButton;
+    btnUpdateHTML: TToolButton;
+    btnCheckNotUsed: TToolButton;
+    ToolButton2: TToolButton;
+    btnProjectCompile: TToolButton;
+    ilPopupDisabled: TImageList;
     procedure FormCreate(Sender: TObject);
     procedure tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
     procedure actProjectLoadExecute(Sender: TObject);
@@ -179,7 +180,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.2';
+  sVersion = ' 1.0.3';
 
 function GetFileList(Path: String; Masks: array of String): TStringList;
 var

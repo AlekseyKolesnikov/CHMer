@@ -1,7 +1,7 @@
-CHMer 1.0.2
+CHMer 1.0.3
 Copyright (C) 2019 by Alexey Kolesnikov.
 Email: ak@blu-disc.net
-Website: https://blu-disc.net
+Website: https://github.com/AlekseyKolesnikov/CHMer
 
 
 A simple CHM creation tool.

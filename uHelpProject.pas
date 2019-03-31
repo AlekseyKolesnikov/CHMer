@@ -449,15 +449,23 @@ begin
   FileHHC := ProjectData.slProject.Values['Contents file'];
   if FileHHC = '' then
   begin
-    FileHHC := ExtractFileName(ChangeFileExt(FileName, '.hhc'));
+    FileHHC := ChangeFileExt(ExtractFileName(FileName), '.hhc');
     ProjectData.slProject.Values['Contents file'] := FileHHC;
   end;
 
   FileHHK := ProjectData.slProject.Values['Index file'];
   if FileHHK = '' then
   begin
-    FileHHK := ExtractFileName(ChangeFileExt(FileName, '.hhk'));
+    FileHHK := ChangeFileExt(ExtractFileName(FileName), '.hhk');
     ProjectData.slProject.Values['Index file'] := FileHHK;
+  end;
+
+  if FileName <> '' then
+  begin
+    if ProjectData.slProject.Values['Compiled file'] = '' then
+      ProjectData.slProject.Values['Compiled file'] := ChangeFileExt(ExtractFileName(FileName), '.chm');
+    if ProjectData.slProject.Values['Title'] = '' then
+      ProjectData.slProject.Values['Title'] := ChangeFileExt(ExtractFileName(FileName), '');
   end;
 
   DeleteFile(ProjectFile);
