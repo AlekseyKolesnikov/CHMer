@@ -6,7 +6,9 @@ uses
   uHelpProject in 'uHelpProject.pas',
   uSelectImage in 'uSelectImage.pas' {frmSelectImage},
   uAddProperty in 'uAddProperty.pas' {frmAddProperty},
-  uSettings in 'uSettings.pas' {frmSettings};
+  uSettings in 'uSettings.pas' {frmSettings},
+  uEditValue in 'uEditValue.pas' {frmEditValue},
+  uEditFont in 'uEditFont.pas' {frmEditFont};
 
 {$R *.res}
 

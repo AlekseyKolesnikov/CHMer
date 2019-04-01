@@ -170,7 +170,6 @@ object frmMain: TfrmMain
     Align = alLeft
     BevelOuter = bvNone
     TabOrder = 0
-    ExplicitHeight = 603
     object splHorizontalLeft: TSplitter
       Left = 0
       Top = 322
@@ -189,7 +188,6 @@ object frmMain: TfrmMain
       Align = alBottom
       BevelOuter = bvNone
       TabOrder = 1
-      ExplicitTop = 263
       object sgProperties: TStringGrid
         AlignWithMargins = True
         Left = 2
@@ -220,18 +218,17 @@ object frmMain: TfrmMain
     end
     object pnProjectTree: TPanel
       Left = 0
-      Top = 40
+      Top = 41
       Width = 300
-      Height = 282
+      Height = 281
       Align = alClient
       BevelOuter = bvNone
       TabOrder = 0
-      ExplicitHeight = 220
       object tvProjectTree: TTreeView
         Left = 26
         Top = 0
         Width = 274
-        Height = 282
+        Height = 281
         Align = alClient
         HideSelection = False
         Images = ilHelp
@@ -241,25 +238,23 @@ object frmMain: TfrmMain
         TabOrder = 0
         OnChange = tvProjectTreeChange
         OnDeletion = tvProjectTreeDeletion
-        ExplicitHeight = 220
       end
       object pnLeftToolbar: TPanel
         Left = 0
         Top = 0
         Width = 26
-        Height = 282
+        Height = 281
         Align = alLeft
         BevelOuter = bvNone
         DoubleBuffered = False
         ParentDoubleBuffered = False
         TabOrder = 1
-        ExplicitHeight = 220
         object tbLeftToolbar: TToolBar
           AlignWithMargins = True
           Left = 2
           Top = 1
           Width = 22
-          Height = 281
+          Height = 280
           Margins.Left = 2
           Margins.Top = 1
           Margins.Right = 0
@@ -270,7 +265,6 @@ object frmMain: TfrmMain
           DisabledImages = ilPopupDisabled
           Images = ilPopup
           TabOrder = 0
-          ExplicitHeight = 219
           object btnAddBefore: TToolButton
             Left = 0
             Top = 0
@@ -331,7 +325,7 @@ object frmMain: TfrmMain
       Left = 0
       Top = 0
       Width = 300
-      Height = 40
+      Height = 41
       Align = alTop
       BevelOuter = bvNone
       DoubleBuffered = False
@@ -340,14 +334,14 @@ object frmMain: TfrmMain
       object tbMain: TToolBar
         AlignWithMargins = True
         Left = 2
-        Top = 6
+        Top = 4
         Width = 298
-        Height = 30
+        Height = 36
         Margins.Left = 2
-        Margins.Top = 6
+        Margins.Top = 4
         Margins.Right = 0
         Margins.Bottom = 0
-        ButtonHeight = 30
+        ButtonHeight = 34
         ButtonWidth = 32
         DisabledImages = ilGrayed
         Images = ilNormal
@@ -425,8 +419,6 @@ object frmMain: TfrmMain
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 1
-    ExplicitWidth = 884
-    ExplicitHeight = 603
     object splHorizontalRight: TSplitter
       Left = 0
       Top = 502
@@ -445,8 +437,6 @@ object frmMain: TfrmMain
       Align = alBottom
       BevelOuter = bvNone
       TabOrder = 1
-      ExplicitTop = 443
-      ExplicitWidth = 884
       object memInfo: TMemo
         AlignWithMargins = True
         Left = 0
@@ -472,7 +462,6 @@ object frmMain: TfrmMain
         ScrollBars = ssBoth
         TabOrder = 0
         WordWrap = False
-        ExplicitWidth = 882
       end
     end
     object pnData: TPanel
@@ -483,27 +472,26 @@ object frmMain: TfrmMain
       Align = alClient
       BevelOuter = bvNone
       TabOrder = 0
-      ExplicitWidth = 884
-      ExplicitHeight = 440
       object pcMainPages: TPageControl
+        AlignWithMargins = True
         Left = 0
-        Top = 0
+        Top = 21
         Width = 881
-        Height = 502
+        Height = 481
+        Margins.Left = 0
+        Margins.Top = 21
+        Margins.Right = 0
+        Margins.Bottom = 0
         ActivePage = tsPreview
         Align = alClient
         TabOrder = 0
-        ExplicitWidth = 884
-        ExplicitHeight = 440
         object tsPreview: TTabSheet
           Caption = 'Preview'
-          ExplicitWidth = 876
-          ExplicitHeight = 412
           object wbBrowser: TWebBrowser
             Left = 0
             Top = 0
             Width = 873
-            Height = 474
+            Height = 453
             Align = alClient
             TabOrder = 0
             ExplicitLeft = 464
@@ -511,9 +499,9 @@ object frmMain: TfrmMain
             ExplicitWidth = 300
             ExplicitHeight = 150
             ControlData = {
-              4C0000003A5A0000FD3000000000000000000000000000000000000000000000
+              4C0000003A5A0000D22E00000000000000000000000000000000000000000000
               000000004C000000000000000000000001000000E0D057007335CF11AE690800
-              2B2E126200000000000000004C0000000114020000000000C000000000000046
+              2B2E126208000000000000004C0000000114020000000000C000000000000046
               8000000000000000000000000000000000000000000000000000000000000000
               00000000000000000100000000000000000000000000000000000000}
           end
@@ -521,13 +509,15 @@ object frmMain: TfrmMain
         object tsHTML: TTabSheet
           Caption = 'HTML'
           ImageIndex = 1
-          ExplicitWidth = 876
-          ExplicitHeight = 412
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 454
           object seHTML: TSynEdit
             Left = 0
             Top = 32
             Width = 873
-            Height = 442
+            Height = 421
             Align = alClient
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
@@ -553,8 +543,7 @@ object frmMain: TfrmMain
             Highlighter = synHTMLSyn
             RightEdge = 120
             FontSmoothing = fsmNone
-            ExplicitWidth = 876
-            ExplicitHeight = 380
+            ExplicitHeight = 422
           end
           object pnHTMLTop: TPanel
             Left = 0
@@ -566,7 +555,6 @@ object frmMain: TfrmMain
             DoubleBuffered = False
             ParentDoubleBuffered = False
             TabOrder = 1
-            ExplicitWidth = 876
             object tbHTML: TToolBar
               Left = 0
               Top = 0
@@ -581,7 +569,6 @@ object frmMain: TfrmMain
               DisabledImages = ilGrayed
               Images = ilNormal
               TabOrder = 0
-              ExplicitWidth = 876
               object btnHTMLSave: TToolButton
                 Left = 0
                 Top = 0
@@ -593,20 +580,21 @@ object frmMain: TfrmMain
         object tsKeywords: TTabSheet
           Caption = 'Keywords'
           ImageIndex = 2
-          ExplicitWidth = 876
-          ExplicitHeight = 412
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 454
           object memKeyWords: TMemo
             Left = 0
             Top = 0
             Width = 873
-            Height = 474
+            Height = 453
             Align = alClient
             BorderStyle = bsNone
             ScrollBars = ssBoth
             TabOrder = 0
             OnChange = memKeyWordsChange
-            ExplicitWidth = 876
-            ExplicitHeight = 412
+            ExplicitHeight = 454
           end
         end
       end
@@ -616,7 +604,7 @@ object frmMain: TfrmMain
     Left = 208
     Top = 128
     Bitmap = {
-      494C01012C005000980010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01012C005000A40010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       000000000000360000002800000040000000C0000000010020000000000000C0
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -2385,7 +2373,7 @@ object frmMain: TfrmMain
     Left = 699
     Top = 144
     Bitmap = {
-      494C010107002000A80018001800FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010107002000B40018001800FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000600000003000000001002000000000000048
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -2992,7 +2980,7 @@ object frmMain: TfrmMain
     Left = 771
     Top = 144
     Bitmap = {
-      494C010107009800780018001800FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C010107009800840018001800FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000600000003000000001002000000000000048
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -3600,7 +3588,7 @@ object frmMain: TfrmMain
     Left = 99
     Top = 196
     Bitmap = {
-      494C01010A008800C0000F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C01010A008800CC000F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       00000000000036000000280000003C0000002D0000000100200000000000302A
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -4020,7 +4008,7 @@ object frmMain: TfrmMain
     Left = 171
     Top = 196
     Bitmap = {
-      494C01010A008800D0000F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C01010A008800DC000F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       00000000000036000000280000003C0000002D0000000100200000000000302A
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

@@ -2,8 +2,6 @@ unit uMain;
 
 // TODO:
 // - input fields validation
-// - dictionaries (select from list)
-// - extend "project was modified" dialog
 // - separate application and project settings
 
 interface
@@ -144,15 +142,19 @@ type
     SelectedObjectData: TObjectData;
 
     function AddObject(FileName: string): TObjectData;
-    procedure CloseProject;
-    function ExecInMemo(CommandLine, Dir: string; Memo: TMemo; Show: Integer; Debug: Boolean = False): Cardinal;
+    function CloseProject: Boolean;
     function GetAddContents: Boolean;
     function GetAddIfEmpty: Boolean;
     function GetHHC(Request: Boolean = True): String;
+    function GetProjectDataList(var aName: string): TStringList;
     procedure InitProjectData(ProjectData: TProjectData);
     procedure LoadProject(FileName: String);
+    procedure PropertiesEditBoolean;
     procedure PropertiesEditDefaultTopic;
+    procedure PropertiesEditFont;
+    procedure PropertiesEditHex;
     procedure PropertiesEditImageIndex;
+    procedure PropertiesEditLanguage;
     procedure PropertiesEditName;
     procedure PropertiesEditRootName;
     procedure PropertiesEditURL;
@@ -169,7 +171,7 @@ implementation
 {$R *.dfm}
 
 uses
-  System.UITypes, StrUtils, Registry, uSelectImage, uAddProperty, uSettings, HTMLTools;
+  System.UITypes, StrUtils, Registry, HTMLTools, SystemUtils, uSelectImage, uAddProperty, uEditValue, uEditFont, uSettings;
 
 const
   eimShowStdOut = 1;
@@ -180,37 +182,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.3';
-
-function GetFileList(Path: String; Masks: array of String): TStringList;
-var
-  i, iFind: Integer;
-  FindRec: TSearchRec;
-begin
-  Result := TStringList.Create;
-  Result.Sorted := True;
-  Result.Duplicates := dupIgnore;
-
-  for i := 0 to Length(Masks) - 1 do
-  begin
-    iFind := FindFirst(Path + Masks[i], faAnyFile, FindRec);
-
-    if iFind <> 0 then
-    begin
-      SysUtils.FindClose(FindRec);
-      Continue;
-    end;
-
-    repeat
-      if (FindRec.Attr <> faDirectory) then
-        Result.Add(FindRec.Name);
-    until FindNext(FindRec) <> 0;
-
-    SysUtils.FindClose(FindRec);
-  end;
-
-  Result.Sort;
-end;
+  sVersion = ' 1.0.4';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 var
@@ -277,8 +249,10 @@ begin
 
   try
     btnProjectCompile.Down := True;
+    Screen.Cursor := crAppStart;
     ExecInMemo(hhc + ' ' + Project.ProjectFile, ExtractFileDir(hhc), memInfo, eimShowStdOut or eimShowStdErr);
   finally
+    Screen.Cursor := crDefault;
     btnProjectCompile.Down := False;
   end;
 
@@ -292,7 +266,8 @@ end;
 
 procedure TfrmMain.actProjectCreateExecute(Sender: TObject);
 begin
-  CloseProject;
+  if not CloseProject then
+    Exit;
 
   Project := TProject.Create('', tvProjectTree.Items);
 
@@ -300,6 +275,7 @@ begin
 
   if Project.ProjectFile = '' then
   begin
+    Project.Modified := False;
     CloseProject;
     Exit;
   end;
@@ -457,16 +433,26 @@ begin
   frmSettings.Free;
 end;
 
-procedure TfrmMain.CloseProject;
+function TfrmMain.CloseProject: Boolean;
+var
+  i: Integer;
 begin
+  Result := False;
+
   if Assigned(Project) and Project.Modified then
   begin
-    if MessageDlg('Project was modified. Save?', mtConfirmation, mbYesNo, 0) = mrYes then
+    i := MessageDlg('Project was modified. Save?', mtConfirmation, mbYesNoCancel, 0);
+
+    if i = mrCancel then
+      Exit;
+
+    if i = mrYes then
       Project.Save;
   end;
 
   SelectedObjectData := nil;
   tvProjectTree.Selected := nil;
+  Result := True;
 
   if Assigned(Project) then
     FreeAndNil(Project);
@@ -482,131 +468,9 @@ begin
   Application.Title := sTitle;
 end;
 
-function TfrmMain.ExecInMemo(CommandLine, Dir: string; Memo: TMemo; Show: Integer; Debug: Boolean = False): Cardinal;
-const
-  BufSize = 4096;
-var
-  SA: TSecurityAttributes;
-  PI: TProcessInformation;
-  SI: TStartupInfo;
-  hReadOut, hWriteOut, hReadErr, hWriteErr: NativeUInt;
-  dwAvailOut, dwAvailErr: Cardinal;
-  hsBuffOut, hsBuffErr: THandleStream;
-  TempBuf: TStringList;
-  StrOut, StrErr: TStringList;
-  resMsg: Cardinal;
-begin
-  //Init
-  Screen.Cursor := crAppStart;
-
-  SA.nLength := SizeOf(SECURITY_ATTRIBUTES);
-  SA.bInheritHandle := True;
-  SA.lpSecurityDescriptor := nil;
-
-  if not CreatePipe(hReadOut, hWriteOut, @SA, 0) then
-  begin
-    Result := 5;
-    Memo.Lines.Add('ERROR: can''t create output pipe!');
-    Exit;
-  end;
-
-  if not CreatePipe(hReadErr, hWriteErr, @SA, 0) then
-  begin
-    Result := 6;
-    Memo.Lines.Add('ERROR: can''t create error pipe!');
-    CloseHandle(hReadOut);
-    CloseHandle(hWriteOut);
-    Exit;
-  end;
-
-  ZeroMemory(@SI, SizeOf(TStartupInfo));
-  SI.cb := SizeOf(TStartupInfo);
-  SI.dwFlags := STARTF_USESTDHANDLES or STARTF_USESHOWWINDOW;
-  if Debug then
-    SI.wShowWindow := SW_NORMAL
-  else
-    SI.wShowWindow := SW_HIDE;
-  SI.hStdOutput := hWriteOut;
-  SI.hStdError := hWriteErr;
-  SI.hStdInput := GetStdHandle(STD_INPUT_HANDLE);
-
-  StrOut := TStringList.Create;
-  StrErr := TStringList.Create;
-
-  //Starting up...
-  if CreateProcess(nil, PChar(CommandLine), nil, nil, True, 0, nil, PChar(Dir), SI, PI) then
-  begin
-    hsBuffOut := THandleStream.Create(hReadOut);
-    hsBuffErr := THandleStream.Create(hReadErr);
-    TempBuf := TStringList.Create;
-
-    //Waiting...
-    //WaitForSingleObject(PI.hProcess, INFINITE);
-    //MsgWaitForMultipleObjects(1, PI.hProcess, False, INFINITE, QS_ALLINPUT);
-    repeat
-      TempBuf.Clear();
-      if hsBuffOut.Size > 0 then
-        TempBuf.LoadFromStream(hsBuffOut); //moving block to the buffer
-      StrOut.AddStrings(TempBuf);
-
-      TempBuf.Clear();
-      if hsBuffErr.Size > 0 then
-        TempBuf.LoadFromStream(hsBuffErr); //moving block to the buffer
-      StrErr.AddStrings(TempBuf);
-
-      //Waiting...
-      //WaitForSingleObject(PI.hProcess, INFINITE);
-      resMsg := MsgWaitForMultipleObjects(1, PI.hProcess, False, INFINITE, QS_ALLINPUT);
-      //Is pipe empty ?
-      PeekNamedPipe(hReadOut, nil, 0, nil, @dwAvailOut, nil);
-      PeekNamedPipe(hReadErr, nil, 0, nil, @dwAvailErr, nil);
-      Application.ProcessMessages;
-    until (dwAvailOut = 0) and (dwAvailErr = 0) and (resMsg <> WAIT_OBJECT_0 + 1);
-
-    GetExitCodeProcess(PI.hProcess, Result);
-
-    if (Show and eimShowStdOut) > 0 then
-    begin
-      Memo.Lines.AddStrings(StrOut);
-      Memo.Lines.Add('');
-      Memo.SelStart := Length(Memo.Text);
-    end;
-    if ((Show and eimShowStdErr) > 0) or
-      (((Show and eimShowStdErrIfErr) > 0) and (Result <> 0)) then
-    begin
-      Memo.Lines.AddStrings(StrErr);
-      Memo.Lines.Add('');
-      Memo.SelStart := Length(Memo.Text);
-    end;
-
-    CloseHandle(PI.hProcess);
-    CloseHandle(PI.hThread);
-
-    FreeAndNil(hsBuffOut);
-    FreeAndNil(hsBuffErr);
-    FreeAndNil(TempBuf);
-  end
-  else
-  begin
-    Result := 7;
-    Memo.Lines.Add('ERROR: can''t start application!');
-  end;
-
-  FreeAndNil(StrOut);
-  FreeAndNil(StrErr);
-
-  CloseHandle(hReadOut);
-  CloseHandle(hWriteOut);
-  CloseHandle(hReadErr);
-  CloseHandle(hWriteErr);
-
-  Screen.Cursor := crDefault;
-end;
-
 procedure TfrmMain.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
-  CloseProject;
-  CanClose := True;
+  CanClose := CloseProject;
 end;
 
 procedure TfrmMain.FormCreate(Sender: TObject);
@@ -736,6 +600,26 @@ begin
   Result := '';
 end;
 
+function TfrmMain.GetProjectDataList(var aName: string): TStringList;
+var
+  ProjectData: TProjectData;
+begin
+  ProjectData := TProjectData(tvProjectTree.Selected.Data);
+
+  if Copy(aName, 1, 8) = sContent + ':' then
+  begin
+    Result := ProjectData.slContent;
+    Delete(aName, 1, 9);
+  end
+  else if Copy(aName, 1, 9) = sKeyWords + ':' then
+  begin
+    Result := ProjectData.slKeyWords;
+    Delete(aName, 1, 10);
+  end
+  else
+    Result := ProjectData.slProject;
+end;
+
 procedure TfrmMain.InitProjectData(ProjectData: TProjectData);
 
   procedure AddData(slData: TStringList; Prefix: String = ''; Offset: Integer = 0);
@@ -760,7 +644,8 @@ end;
 
 procedure TfrmMain.LoadProject(FileName: String);
 begin
-  CloseProject;
+  if not CloseProject then
+    Exit;
 
   Project := TProject.Create(FileName, tvProjectTree.Items);
 
@@ -1051,19 +936,7 @@ begin
 
     value := sgProperties.Cells[1, sgProperties.Row];
 
-    if Copy(aName, 1, 8) = sContent + ':' then
-    begin
-      slList := ProjectData.slContent;
-      Delete(aName, 1, 9);
-    end
-    else
-    if Copy(aName, 1, 9) = sKeyWords + ':' then
-    begin
-      slList := ProjectData.slKeyWords;
-      Delete(aName, 1, 10);
-    end
-    else
-      slList := ProjectData.slProject;
+    slList := GetProjectDataList(aName);
 
     slList.Delete(slList.IndexOfName(aName));
     sgProperties.RowCount := ProjectData.GetPropsCount + 1;
@@ -1084,6 +957,31 @@ begin
   miPropertiesDelete.Enabled := miPropertiesAdd.Enabled;
 end;
 
+procedure InitListBoolean(aList: TStrings);
+begin
+  aList.Add('Yes');
+  aList.Add('No');
+end;
+
+procedure TfrmMain.PropertiesEditBoolean;
+var
+  value, aName: string;
+  slList: TStringList;
+begin
+  value := sgProperties.Cells[1, sgProperties.Row];
+
+  if InputList(sgProperties.Cells[0, sgProperties.Row], value, InitListBoolean, nil) then
+  begin
+    sgProperties.Cells[1, sgProperties.Row] := value;
+
+    aName := sgProperties.Cells[0, sgProperties.Row];
+    slList := GetProjectDataList(aName);
+    slList.Values[aName] := value;
+
+    Project.Modified := True;
+  end;
+end;
+
 procedure TfrmMain.PropertiesEditDefaultTopic;
 var
   ProjectData: TProjectData;
@@ -1094,6 +992,71 @@ begin
     sgProperties.Cells[1, sgProperties.Row] := ExtractFileName(dlgOpenHTML.FileName);
     ProjectData := TProjectData(tvProjectTree.Selected.Data);
     ProjectData.slProject.Values[sgProperties.Cells[0, sgProperties.Row]] := sgProperties.Cells[1, sgProperties.Row];
+    Project.Modified := True;
+  end;
+end;
+
+procedure TfrmMain.PropertiesEditFont;
+var
+  FontName, aName, value: string;
+  FontSize, Charset, i: Integer;
+  slList: TStringList;
+begin
+  FontName := '';
+  FontSize := 8;
+  Charset := 0;
+
+  value := sgProperties.Cells[1, sgProperties.Row];
+  i := Pos(',', value);
+  if i > 0 then
+  begin
+    FontName := Copy(value, 1, i - 1);
+    Delete(value, 1, i);
+  end;
+  i := Pos(',', value);
+  if i > 0 then
+  try
+    FontSize := StrToInt(Trim(Copy(value, 1, i - 1)));
+    Delete(value, 1, i);
+    Charset := StrToInt(Trim(value));
+  except
+  end;
+
+  if InputFont('Fonts', FontName, FontSize, Charset) then
+  begin
+    value := FontName + ',' + IntToStr(FontSize) + ',' + IntToStr(Charset);
+    sgProperties.Cells[1, sgProperties.Row] := value;
+
+    aName := sgProperties.Cells[0, sgProperties.Row];
+    slList := GetProjectDataList(aName);
+    slList.Values[aName] := value;
+
+    Project.Modified := True;
+  end;
+end;
+
+procedure TfrmMain.PropertiesEditHex;
+var
+  value, aName: string;
+  intValue: Integer;
+  slList: TStringList;
+begin
+  value := StringReplace(sgProperties.Cells[1, sgProperties.Row], '0x', '$', [rfIgnoreCase]);
+  try
+    intValue := StrToInt(value);
+  except
+    intValue := 0;
+  end;
+
+  if InputInteger(sgProperties.Cells[0, sgProperties.Row], intValue) then
+  begin
+    value := IntegerToHex(intValue);
+    sgProperties.Cells[1, sgProperties.Row] := value;
+
+    aName := sgProperties.Cells[0, sgProperties.Row];
+    slList := GetProjectDataList(aName);
+    slList.Values[aName] := value;
+
     Project.Modified := True;
   end;
 end;
@@ -1109,6 +1072,7 @@ begin
   except
     ImageIndex := -1;
   end;
+
   ImageIndex := GetImageIndex(ImageIndex);
 
   if ImageIndex > -1 then
@@ -1118,6 +1082,66 @@ begin
     SelectedObjectData.ImageIndex := value;
     tvProjectTree.Selected.ImageIndex := ImageIndex;
     tvProjectTree.Selected.SelectedIndex := ImageIndex;
+    Project.Modified := True;
+  end;
+end;
+
+procedure InitListLanguage(aList: TStrings);
+var
+  i: Integer;
+  S: string;
+  stringList: TStringList;
+begin
+  for i := $401 to 65536 do
+  begin
+    S := GetLocaleName(i, LOCALE_SLOCALIZEDDISPLAYNAME);
+    if (S <> '') and (aList.IndexOf(S) < 0) then
+      aList.AddObject(S, Pointer(i));
+  end;
+
+  stringList := TStringList.Create;
+  try
+     stringList.Assign(aList);
+     stringList.Sort;
+     aList.Assign(stringList);
+  finally
+     stringList.Free;
+  end;
+end;
+
+var
+  iSelectedLangCode: Integer;
+
+procedure DestroyListLanguage(aList: TStrings; ItemIndex: Integer);
+begin
+  if ItemIndex > -1 then
+    iSelectedLangCode := Integer(Pointer(aList.Objects[ItemIndex]));
+end;
+
+procedure TfrmMain.PropertiesEditLanguage;
+var
+  value, aName: string;
+  i: Integer;
+  slList: TStringList;
+begin
+  value := Trim(sgProperties.Cells[1, sgProperties.Row]);
+
+  i := Pos(' ', value);
+  if i > 0 then
+  begin
+    Delete(value, 1, i);
+    value := Trim(value);
+  end;
+  iSelectedLangCode := 0;
+
+  if InputList(sgProperties.Cells[0, sgProperties.Row], value, InitListLanguage, DestroyListLanguage) then
+  begin
+    sgProperties.Cells[1, sgProperties.Row] := IntegerToHex(iSelectedLangCode) + ' ' + value;
+
+    aName := sgProperties.Cells[0, sgProperties.Row];
+    slList := GetProjectDataList(aName);
+    slList.Values[aName] := sgProperties.Cells[1, sgProperties.Row];
+
     Project.Modified := True;
   end;
 end;
@@ -1140,31 +1164,18 @@ end;
 procedure TfrmMain.PropertiesEditRootName;
 var
   value, aName: string;
-  ProjectData: TProjectData;
   slList: TStringList;
 begin
-  ProjectData := TProjectData(tvProjectTree.Selected.Data);
-  aName := sgProperties.Cells[0, sgProperties.Row];
   value := sgProperties.Cells[1, sgProperties.Row];
-
-  if Copy(aName, 1, 8) = sContent + ':' then
-  begin
-    slList := ProjectData.slContent;
-    Delete(aName, 1, 9);
-  end
-  else
-  if Copy(aName, 1, 9) = sKeyWords + ':' then
-  begin
-    slList := ProjectData.slKeyWords;
-    Delete(aName, 1, 10);
-  end
-  else
-    slList := ProjectData.slProject;
 
   if InputQuery(sgProperties.Cells[0, sgProperties.Row], 'Value', value) then
   begin
     sgProperties.Cells[1, sgProperties.Row] := value;
+
+    aName := sgProperties.Cells[0, sgProperties.Row];
+    slList := GetProjectDataList(aName);
     slList.Values[aName] := value;
+
     Project.Modified := True;
   end;
 end;
@@ -1197,25 +1208,40 @@ begin
 end;
 
 procedure TfrmMain.sgPropertiesDblClick(Sender: TObject);
+var
+  propertyName: string;
 begin
   if not Assigned(Project) then
     Exit;
 
+  propertyName := AnsiLowerCase(sgProperties.Cells[0, sgProperties.Row]);
   if Assigned(SelectedObjectData) then
   begin
-    if AnsiLowerCase(sgProperties.Cells[0, sgProperties.Row]) = 'local' then
+    if propertyName = 'local' then
       PropertiesEditURL
     else
-    if AnsiLowerCase(sgProperties.Cells[0, sgProperties.Row]) = 'imageindex' then
+    if propertyName = 'imageindex' then
       PropertiesEditImageIndex
     else
-    if AnsiLowerCase(sgProperties.Cells[0, sgProperties.Row]) = 'name' then
+    if propertyName = 'name' then
       PropertiesEditName
   end
   else
   begin
-    if AnsiLowerCase(sgProperties.Cells[0, sgProperties.Row]) = 'default topic' then
+    if propertyName = 'default topic' then
       PropertiesEditDefaultTopic
+    else
+    if (propertyName = 'default font') or (Pos(': font', propertyName) > 0) then
+      PropertiesEditFont
+    else
+    if (Pos('window styles', propertyName) > 0) or (Pos('exwindow styles', propertyName) > 0) then
+      PropertiesEditHex
+    else
+    if (propertyName = 'display compile progress') or (propertyName = 'full-text search') then
+      PropertiesEditBoolean
+    else
+    if propertyName = 'language' then
+      PropertiesEditLanguage
     else
       PropertiesEditRootName
   end;
