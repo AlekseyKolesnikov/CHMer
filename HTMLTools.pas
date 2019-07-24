@@ -4,7 +4,7 @@ interface
 
 function GetTagText(html, tag: String; Convert: Boolean = True): String;
 function FromHTML(html: String): String;
-function ToHTML(S: String): String;
+function ToHTML(S: String; WithoutFrasl: Boolean = False): String;
 
 implementation
 
@@ -12,10 +12,10 @@ uses
   System.SysUtils;
 
 const
-  codes = 235;
+  codes = 234;
 
   HTML_codes: array [1..codes] of Integer = (
-    34, 38, 47, 60, 62, 130, 132, 134, 135, 137, 139, 145, 146, 147, 148, 153, 155, 160, 161, 162, 163, 164, 165, 166,
+    34, 47, 60, 62, 130, 132, 134, 135, 137, 139, 145, 146, 147, 148, 153, 155, 160, 161, 162, 163, 164, 165, 166,
     167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189,
     190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212,
     213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235,
@@ -29,7 +29,7 @@ const
   );
 
   HTML_signs: array [1..codes] of String = (
-    '&quot;', '&amp;', '&frasl;', '&lt;', '&gt;', '&sbquo;', '&bdquo;', '&dagger;', '&Dagger;', '&permil;', '&lsaquo;',
+    '&quot;', '&frasl;', '&lt;', '&gt;', '&sbquo;', '&bdquo;', '&dagger;', '&Dagger;', '&permil;', '&lsaquo;',
     '&lsquo;', '&rsquo;', '&ldquo;', '&rdquo;', '&trade;', '&rsaquo;', '&nbsp;', '&iexcl;', '&cent;', '&pound;', '&curren;',
     '&yen;', '&brvbar;', '&sect;', '&uml;', '&copy;', '&ordf;', '&laquo;', '&not;', '&shy;', '&reg;', '&macr;', '&deg;',
     '&plusmn;', '&sup2;', '&sup3;', '&acute;', '&micro;', '&para;', '&middot;', '&cedil;', '&sup1;', '&ordm;', '&raquo;',
@@ -87,18 +87,27 @@ var
   i: Integer;
 begin
   Result := html;
+
   if Pos('&', Result) > 0 then
+  begin
     for i := 1 to codes do
       Result := StringReplace(Result, HTML_signs[i], Char(HTML_codes[i]), [rfReplaceAll]);
+    Result := StringReplace(Result, '&amp;', Char(38), [rfReplaceAll]);
+  end;
 end;
 
-function ToHTML(S: String): String;
+function ToHTML(S: String; WithoutFrasl: Boolean = False): String;
 var
   i: Integer;
 begin
   Result := S;
+
+  Result := StringReplace(Result, Char(38), '&amp;', [rfReplaceAll]);
   for i := 1 to codes do
     Result := StringReplace(Result, Char(HTML_codes[i]), HTML_signs[i], [rfReplaceAll]);
+
+  if WithoutFrasl then
+    Result := StringReplace(Result, '&frasl;', '/', [rfReplaceAll]);
 end;
 
 end.

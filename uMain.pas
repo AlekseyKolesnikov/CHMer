@@ -174,15 +174,11 @@ uses
   System.UITypes, StrUtils, Registry, HTMLTools, SystemUtils, uSelectImage, uAddProperty, uEditValue, uEditFont, uSettings;
 
 const
-  eimShowStdOut = 1;
-  eimShowStdErrIfErr = 2;
-  eimShowStdErr = 4;
-
   sContent = 'Content';
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.4';
+  sVersion = ' 1.0.5';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 var
@@ -366,7 +362,7 @@ begin
         S := GetTagText(slHTML.Text, 'title', False);
         if S <> '' then
         begin
-          slHTML.Text := StringReplace(slHTML.Text, '<title>' + S + '</title>', '<title>' + ToHTML(ObjectData.Name) + '</title>', [rfIgnoreCase]);
+          slHTML.Text := StringReplace(slHTML.Text, '<title>' + S + '</title>', '<title>' + ToHTML(ObjectData.Name, True) + '</title>', [rfIgnoreCase]);
           slHTML.SaveToFile(Project.PrjDir + ObjectData.URL);
         end;
       end

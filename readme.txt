@@ -1,4 +1,4 @@
-CHMer 1.0.4
+CHMer 1.0.5
 Copyright (C) 2019 by Alexey Kolesnikov.
 Email: ak@blu-disc.net
 Website: https://github.com/AlekseyKolesnikov/CHMer

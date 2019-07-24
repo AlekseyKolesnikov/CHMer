@@ -190,7 +190,7 @@ var
   len: Integer;
   i: Integer;
 begin
-  Result := IntToHex(Value);
+  Result := IntToHex(Value, 1);
 
   len := Length(Result);
 
