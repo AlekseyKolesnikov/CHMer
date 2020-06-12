@@ -14,6 +14,8 @@ type
     btnOK: TButton;
     btnCancel: TButton;
     chbAddIfEmpty: TCheckBox;
+    edEditor: TFilenameEdit;
+    Label2: TLabel;
   private
     { Private declarations }
   public

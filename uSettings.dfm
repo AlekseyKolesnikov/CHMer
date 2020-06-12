@@ -26,6 +26,13 @@ object frmSettings: TfrmSettings
     Height = 13
     Caption = 'HHC.exe path'
   end
+  object Label2: TLabel
+    Left = 8
+    Top = 38
+    Width = 53
+    Height = 13
+    Caption = 'Editor path'
+  end
   object edHHC: TFilenameEdit
     Left = 82
     Top = 8
@@ -36,15 +43,14 @@ object frmSettings: TfrmSettings
     NumGlyphs = 1
     TabOrder = 0
     Text = ''
-    ExplicitWidth = 304
   end
   object chbAddContents: TCheckBox
     Left = 8
-    Top = 35
+    Top = 62
     Width = 246
     Height = 17
     Caption = 'Add names from the content tree to keywords'
-    TabOrder = 1
+    TabOrder = 2
   end
   object btnOK: TButton
     Left = 262
@@ -55,9 +61,7 @@ object frmSettings: TfrmSettings
     Caption = 'OK'
     Default = True
     ModalResult = 1
-    TabOrder = 3
-    ExplicitLeft = 230
-    ExplicitTop = 70
+    TabOrder = 4
   end
   object btnCancel: TButton
     Left = 343
@@ -68,16 +72,25 @@ object frmSettings: TfrmSettings
     Cancel = True
     Caption = 'Cancel'
     ModalResult = 2
-    TabOrder = 4
-    ExplicitLeft = 311
-    ExplicitTop = 70
+    TabOrder = 5
   end
   object chbAddIfEmpty: TCheckBox
     Left = 253
-    Top = 35
+    Top = 62
     Width = 172
     Height = 17
     Caption = 'only if the keywords are empty'
-    TabOrder = 2
+    TabOrder = 3
+  end
+  object edEditor: TFilenameEdit
+    Left = 82
+    Top = 35
+    Width = 336
+    Height = 21
+    Filter = 'Executables (*.exe)|*.exe'
+    Anchors = [akLeft, akTop, akRight]
+    NumGlyphs = 1
+    TabOrder = 1
+    Text = ''
   end
 end

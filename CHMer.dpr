@@ -8,7 +8,8 @@ uses
   uAddProperty in 'uAddProperty.pas' {frmAddProperty},
   uSettings in 'uSettings.pas' {frmSettings},
   uEditValue in 'uEditValue.pas' {frmEditValue},
-  uEditFont in 'uEditFont.pas' {frmEditFont};
+  uEditFont in 'uEditFont.pas' {frmEditFont},
+  uAddNewEmpty in 'uAddNewEmpty.pas' {frmAddNewEmpty};
 
 {$R *.res}
 

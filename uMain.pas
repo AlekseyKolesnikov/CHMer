@@ -12,6 +12,8 @@ uses
   uHelpProject;
 
 type
+  TAddFile = function (const FileName: String): TTreeNode of object;
+
   TfrmMain = class(TForm)
     pnLeft: TPanel;
     splVertical: TSplitter;
@@ -25,14 +27,12 @@ type
     pcMainPages: TPageControl;
     tsPreview: TTabSheet;
     tsHTML: TTabSheet;
-    tsKeywords: TTabSheet;
     tvProjectTree: TTreeView;
     sgProperties: TStringGrid;
     ilHelp: TImageList;
     wbBrowser: TWebBrowser;
     seHTML: TSynEdit;
     synHTMLSyn: TSynHTMLSyn;
-    memKeyWords: TMemo;
     pnHTMLTop: TPanel;
     tbHTML: TToolBar;
     btnHTMLSave: TToolButton;
@@ -105,6 +105,13 @@ type
     ToolButton2: TToolButton;
     btnProjectCompile: TToolButton;
     ilPopupDisabled: TImageList;
+    memKeyWords: TMemo;
+    splVerticalRight: TSplitter;
+    lbKeywords: TLabel;
+    btnEdit: TToolButton;
+    actEditHTML: TAction;
+    btnNewEmpty: TToolButton;
+    actNewEmpty: TAction;
     procedure FormCreate(Sender: TObject);
     procedure tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
     procedure actProjectLoadExecute(Sender: TObject);
@@ -136,19 +143,28 @@ type
     procedure actCheckNotUsedExecute(Sender: TObject);
     procedure btnSettingsClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure splVerticalRightMoved(Sender: TObject);
+    procedure FormResize(Sender: TObject);
+    procedure actEditHTMLExecute(Sender: TObject);
+    procedure actNewEmptyExecute(Sender: TObject);
   private
     { Private declarations }
     Project: TProject;
     SelectedObjectData: TObjectData;
 
-    function AddObject(FileName: string): TObjectData;
+    function AddAfter(const FileName: string): TTreeNode;
+    function AddBefore(const FileName: string): TTreeNode;
+    function AddChild(const FileName: string): TTreeNode;
+    procedure AddFiles(AddFile: TAddFile);
+    function AddObject(const FileName: string): TObjectData;
     function CloseProject: Boolean;
     function GetAddContents: Boolean;
     function GetAddIfEmpty: Boolean;
+    function GetEditor: String;
     function GetHHC(Request: Boolean = True): String;
     function GetProjectDataList(var aName: string): TStringList;
     procedure InitProjectData(ProjectData: TProjectData);
-    procedure LoadProject(FileName: String);
+    procedure LoadProject(const FileName: String);
     procedure PropertiesEditBoolean;
     procedure PropertiesEditDefaultTopic;
     procedure PropertiesEditFont;
@@ -171,14 +187,15 @@ implementation
 {$R *.dfm}
 
 uses
-  System.UITypes, StrUtils, Registry, HTMLTools, SystemUtils, uSelectImage, uAddProperty, uEditValue, uEditFont, uSettings;
+  System.UITypes, StrUtils, Registry, ShellAPI, HTMLTools, SystemUtils, uSelectImage, uAddProperty, uEditValue, uEditFont, uSettings,
+  uAddNewEmpty;
 
 const
   sContent = 'Content';
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.5';
+  sVersion = ' 1.0.6';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 var
@@ -220,6 +237,25 @@ begin
   slFilesBackup.Free;
 end;
 
+procedure TfrmMain.actEditHTMLExecute(Sender: TObject);
+var
+  editor: string;
+begin
+  editor := GetEditor;
+
+  if editor = '' then
+  begin
+    ShowMessage('Editor not specified');
+    btnSettings.Click;
+
+    editor := GetEditor;
+    if editor = '' then
+      Exit;
+  end;
+
+  ShellExecute(0, nil, PWideChar(editor), PWideChar(Project.PrjDir + SelectedObjectData.URL), PWideChar(Project.PrjDir), SW_SHOWNORMAL);
+end;
+
 procedure TfrmMain.actHTMLSaveExecute(Sender: TObject);
 begin
   if (not Assigned(Project)) or (not Assigned(SelectedObjectData)) then
@@ -228,6 +264,68 @@ begin
   seHTML.Lines.SaveToFile(Project.PrjDir + SelectedObjectData.URL);
   wbBrowser.Refresh;
   seHTML.Modified := False;
+end;
+
+procedure TfrmMain.actNewEmptyExecute(Sender: TObject);
+var
+  Title, FileName, Ext: String;
+  Position: Integer;
+  OpenEditor: Boolean;
+  slHTML: TStringList;
+  aNode: TTreeNode;
+begin
+  if InputNewEmpty(Title, FileName, Position, OpenEditor) then
+  begin
+    FileName := Trim(FileName);
+    if FileName = '' then
+    begin
+      ShowMessage('You should specify the file name.');
+      Exit;
+    end;
+
+    Ext := AnsiLowerCase(ExtractFileExt(FileName));
+    if (Ext <> '.html') and (Ext <> '.htm') then
+      Ext := '.html';
+    FileName := ChangeFileExt(FileName, Ext);
+
+    slHTML := TStringList.Create;
+
+    slHTML.Add('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">');
+    slHTML.Add('<html xmlns="http://www.w3.org/1999/xhtml">');
+    slHTML.Add('  <head>');
+    slHTML.Add('    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />');
+    slHTML.Add('    <title>' + ToHTML(Title) + '</title>');
+    slHTML.Add('  </head>');
+    slHTML.Add('');
+    slHTML.Add('  <body>');
+    slHTML.Add('  </body>');
+    slHTML.Add('</html>');
+
+    try
+      slHTML.SaveToFile(Project.PrjDir + FileName, TEncoding.UTF8);
+    except
+      ShowMessage('Error saving file');
+      slHTML.Free;
+      Exit;
+    end;
+
+    slHTML.Free;
+
+    if (Position = 0) and actAddBefore.Enabled then
+      aNode := AddBefore(Project.PrjDir + FileName)
+    else
+    if (Position = 1) and actAddAfter.Enabled then
+      aNode := AddAfter(Project.PrjDir + FileName)
+    else
+      aNode := AddChild(Project.PrjDir + FileName);
+
+    if OpenEditor and Assigned(aNode) then
+    begin
+      tvProjectTree.Selected := aNode;
+      Project.Modified := True;
+      actEditHTMLExecute(Sender);
+    end;
+  end;
 end;
 
 procedure TfrmMain.actProjectCompileExecute(Sender: TObject);
@@ -328,6 +426,7 @@ begin
   actAddBefore.Enabled := Assigned(Project) and Assigned(SelectedObjectData);
   actAddAfter.Enabled := actAddBefore.Enabled;
   actDelete.Enabled := actAddBefore.Enabled;
+  actEditHTML.Enabled := actAddBefore.Enabled;
 
   actMoveUp.Enabled := actAddBefore.Enabled and (tvProjectTree.Selected.GetPrev <> tvProjectTree.Items[0]) and (tvProjectTree.Selected.getPrevSibling <> nil);
   actMoveDown.Enabled := actAddBefore.Enabled and (tvProjectTree.Selected.getNextSibling <> nil);
@@ -336,6 +435,7 @@ begin
   actLevelInside.Enabled := actMoveDown.Enabled;
 
   actAddChild.Enabled := Assigned(Project);
+  actNewEmpty.Enabled := actAddChild.Enabled;
 end;
 
 procedure TfrmMain.actUpdateHTMLExecute(Sender: TObject);
@@ -376,7 +476,80 @@ begin
   end;
 end;
 
-function TfrmMain.AddObject(FileName: string): TObjectData;
+function TfrmMain.AddAfter(const FileName: string): TTreeNode;
+var
+  DataObject: TObjectData;
+begin
+  DataObject := AddObject(FileName);
+
+  Result := tvProjectTree.Selected.getNextSibling;
+
+  if Assigned(Result) then
+    Result := tvProjectTree.Items.Insert(Result, DataObject.Name)
+  else
+    Result := tvProjectTree.Items.Add(tvProjectTree.Selected, DataObject.Name);
+
+  Result.Data := DataObject;
+  Result.ImageIndex := 11;
+  Result.SelectedIndex := 11;
+end;
+
+function TfrmMain.AddBefore(const FileName: string): TTreeNode;
+var
+  DataObject: TObjectData;
+begin
+  DataObject := AddObject(FileName);
+
+  Result := tvProjectTree.Items.Insert(tvProjectTree.Selected, DataObject.Name);
+
+  Result.Data := DataObject;
+  Result.ImageIndex := 11;
+  Result.SelectedIndex := 11;
+end;
+
+function TfrmMain.AddChild(const FileName: string): TTreeNode;
+var
+  DataObject: TObjectData;
+begin
+  DataObject := AddObject(FileName);
+
+  if (not tvProjectTree.Selected.HasChildren) and (tvProjectTree.Selected <> tvProjectTree.Items[0]) then
+  begin
+    TObjectData(tvProjectTree.Selected.Data).ImageIndex := '1';
+    tvProjectTree.Selected.ImageIndex := 1;
+    tvProjectTree.Selected.SelectedIndex := 1;
+  end;
+
+  Result := tvProjectTree.Items.AddChild(tvProjectTree.Selected, DataObject.Name);
+  Result.Data := DataObject;
+  Result.ImageIndex := 11;
+  Result.SelectedIndex := 11;
+end;
+
+procedure TfrmMain.AddFiles(AddFile: TAddFile);
+var
+  aNode: TTreeNode;
+  i: Integer;
+begin
+  try
+    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
+
+    if dlgOpenHTML.Execute then
+    begin
+      aNode := tvProjectTree.Selected;
+
+      for i := 0 to dlgOpenHTML.Files.Count - 1 do
+        aNode := AddFile(dlgOpenHTML.Files[i]);
+
+      tvProjectTree.Selected := aNode;
+      Project.Modified := True;
+    end;
+  finally
+    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
+  end;
+end;
+
+function TfrmMain.AddObject(const FileName: string): TObjectData;
 var
   slHTML: TStringList;
   aName: string;
@@ -407,6 +580,7 @@ var
 begin
   frmSettings := TfrmSettings.Create(Self);
   frmSettings.edHHC.FileName := GetHHC(False);
+  frmSettings.edEditor.FileName := GetEditor;
   frmSettings.chbAddContents.Checked := GetAddContents;
   frmSettings.chbAddIfEmpty.Checked := GetAddIfEmpty;
 
@@ -419,6 +593,7 @@ begin
     if reg.OpenKey('Software\CHMer', True) then
     begin
       reg.WriteString('', 'HHC', frmSettings.edHHC.FileName);
+      reg.WriteString('', 'Editor', frmSettings.edEditor.FileName);
       reg.WriteBool('', 'AddContents', frmSettings.chbAddContents.Checked);
       reg.WriteBool('', 'AddIfEmpty', frmSettings.chbAddIfEmpty.Checked);
     end;
@@ -482,6 +657,11 @@ begin
   sgProperties.Cells[0, 0] := '[properties]';
 end;
 
+procedure TfrmMain.FormResize(Sender: TObject);
+begin
+  splVerticalRightMoved(Sender);
+end;
+
 procedure TfrmMain.FormShow(Sender: TObject);
 begin
   Self.OnShow := nil;
@@ -518,6 +698,27 @@ begin
   if reg.OpenKeyReadOnly('Software\CHMer') then
     Result := reg.ReadBool('', 'AddIfEmpty', False);
 
+  reg.Free;
+end;
+
+function TfrmMain.GetEditor: String;
+var
+  reg: TRegIniFile;
+begin
+  Result := '';
+  reg := TRegIniFile.Create;
+
+  reg.RootKey := HKEY_CURRENT_USER;
+  if reg.OpenKeyReadOnly('Software\CHMer') then
+  begin
+    Result := reg.ReadString('', 'Editor', '');
+    if (Result <> '') and FileExists(Result) then
+    begin
+      reg.Free;
+      Exit;
+    end;
+    reg.CloseKey;
+  end;
   reg.Free;
 end;
 
@@ -638,7 +839,7 @@ begin
   AddData(ProjectData.slKeyWords, sKeywords, ProjectData.slProject.Count + ProjectData.slContent.Count);
 end;
 
-procedure TfrmMain.LoadProject(FileName: String);
+procedure TfrmMain.LoadProject(const FileName: String);
 begin
   if not CloseProject then
     Exit;
@@ -665,110 +866,19 @@ begin
 end;
 
 procedure TfrmMain.miAddAfterClick(Sender: TObject);
-var
-  DataObject: TObjectData;
-  aNode: TTreeNode;
-  i: Integer;
 begin
-  try
-    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
-
-    if dlgOpenHTML.Execute then
-    begin
-      aNode := tvProjectTree.Selected;
-
-      for i := 0 to dlgOpenHTML.Files.Count - 1 do
-      begin
-        DataObject := AddObject(dlgOpenHTML.Files[i]);
-
-        aNode := tvProjectTree.Selected.getNextSibling;
-
-        if Assigned(aNode) then
-          aNode := tvProjectTree.Items.Insert(aNode, DataObject.Name)
-        else
-          aNode := tvProjectTree.Items.Add(tvProjectTree.Selected, DataObject.Name);
-
-        aNode.Data := DataObject;
-        aNode.ImageIndex := 11;
-        aNode.SelectedIndex := 11;
-      end;
-
-      tvProjectTree.Selected := aNode;
-      Project.Modified := True;
-    end;
-  finally
-    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
-  end;
+  AddFiles(AddAfter);
 end;
 
 procedure TfrmMain.miAddBeforeClick(Sender: TObject);
-var
-  DataObject: TObjectData;
-  aNode: TTreeNode;
-  i: Integer;
 begin
-  try
-    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
-
-    if dlgOpenHTML.Execute then
-    begin
-      aNode := tvProjectTree.Selected;
-
-      for i := 0 to dlgOpenHTML.Files.Count - 1 do
-      begin
-        DataObject := AddObject(dlgOpenHTML.Files[i]);
-
-        aNode := tvProjectTree.Items.Insert(tvProjectTree.Selected, DataObject.Name);
-        aNode.Data := DataObject;
-        aNode.ImageIndex := 11;
-        aNode.SelectedIndex := 11;
-      end;
-
-      tvProjectTree.Selected := aNode;
-      Project.Modified := True;
-    end;
-  finally
-    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
-  end;
+  AddFiles(AddBefore);
 end;
 
 procedure TfrmMain.miAddChildClick(Sender: TObject);
-var
-  DataObject: TObjectData;
-  aNode: TTreeNode;
-  i: Integer;
 begin
   tvProjectTree.Selected.Expand(False);
-  try
-    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
-
-    if dlgOpenHTML.Execute then
-    begin
-      aNode := tvProjectTree.Selected;
-
-      for i := 0 to dlgOpenHTML.Files.Count - 1 do
-      begin
-        DataObject := AddObject(dlgOpenHTML.Files[i]);
-
-        if (not tvProjectTree.Selected.HasChildren) and (tvProjectTree.Selected <> tvProjectTree.Items[0]) then
-        begin
-          TObjectData(tvProjectTree.Selected.Data).ImageIndex := '1';
-          tvProjectTree.Selected.ImageIndex := 1;
-          tvProjectTree.Selected.SelectedIndex := 1;
-        end;
-
-        aNode := tvProjectTree.Items.AddChild(tvProjectTree.Selected, DataObject.Name);
-        aNode.Data := DataObject;
-        aNode.ImageIndex := 11;
-        aNode.SelectedIndex := 11;
-      end;
-
-      tvProjectTree.Selected := aNode;
-      Project.Modified := True;
-    end;
-  finally
-    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
-  end;
+  AddFiles(AddChild);
 end;
 
 procedure TfrmMain.miCollapseAllClick(Sender: TObject);
@@ -1241,6 +1351,11 @@ begin
     else
       PropertiesEditRootName
   end;
+end;
+
+procedure TfrmMain.splVerticalRightMoved(Sender: TObject);
+begin
+  lbKeywords.Left := splVerticalRight.Left + 5;
 end;
 
 procedure TfrmMain.tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
