@@ -147,10 +147,13 @@ type
     procedure FormResize(Sender: TObject);
     procedure actEditHTMLExecute(Sender: TObject);
     procedure actNewEmptyExecute(Sender: TObject);
+    procedure wbBrowserBeforeNavigate2(ASender: TObject; const pDisp: IDispatch; const URL, Flags, TargetFrameName, PostData,
+      Headers: OleVariant; var Cancel: WordBool);
   private
     { Private declarations }
     Project: TProject;
     SelectedObjectData: TObjectData;
+    CurFileAge: TDateTime;
 
     function AddAfter(const FileName: string): TTreeNode;
     function AddBefore(const FileName: string): TTreeNode;
@@ -175,6 +178,7 @@ type
     procedure PropertiesEditRootName;
     procedure PropertiesEditURL;
     procedure SaveSettingsHHC(hhc: String);
+    function SelectTreeItemByUrl(URL: String): Boolean;
   public
     { Public declarations }
   end;
@@ -195,7 +199,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.6';
+  sVersion = ' 1.0.7';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 var
@@ -262,6 +266,7 @@ begin
     Exit;
 
   seHTML.Lines.SaveToFile(Project.PrjDir + SelectedObjectData.URL);
+  FileAge(Project.PrjDir + SelectedObjectData.URL, CurFileAge);
   wbBrowser.Refresh;
   seHTML.Modified := False;
 end;
@@ -416,6 +421,9 @@ begin
 end;
 
 procedure TfrmMain.actProjectSaveUpdate(Sender: TObject);
+var
+  CHMData: TCHMData;
+  aFileAge: TDateTime;
 begin
   actHTMLSave.Enabled := seHTML.Modified;
   actProjectSave.Enabled := Assigned(Project) and Project.Modified;
@@ -436,6 +444,31 @@ begin
 
   actAddChild.Enabled := Assigned(Project);
   actNewEmpty.Enabled := actAddChild.Enabled;
+
+
+  // Monitor file changes in external application
+
+  if not Assigned(Project) then
+    Exit;
+
+  if not Assigned(tvProjectTree.Selected) then
+    Exit;
+
+  CHMData := TCHMData(tvProjectTree.Selected.Data);
+
+  if CHMData is TProjectData then
+    Exit;
+
+  SelectedObjectData := TObjectData(CHMData);
+
+  FileAge(Project.PrjDir + SelectedObjectData.URL, aFileAge);
+  if aFileAge <> CurFileAge then
+  begin
+    CurFileAge := aFileAge;
+    //memInfo.Lines.Add('Reloading ' + Project.PrjDir + SelectedObjectData.URL + '...');
+    wbBrowser.Navigate(Project.PrjDir + SelectedObjectData.URL, navNoHistory or navNoReadFromCache or navNoWriteToCache);
+    seHTML.Lines.LoadFromFile(Project.PrjDir + SelectedObjectData.URL);
+  end;
 end;
 
 procedure TfrmMain.actUpdateHTMLExecute(Sender: TObject);
@@ -649,12 +682,15 @@ begin
   Self.Caption := sTitle + sVersion;
   Application.Title := sTitle;
   fsLayout.UseRegistry := True;
+  pcMainPages.ActivePageIndex := 0;
 
   Project := nil;
 
   SelectedObjectData := nil;
 
   sgProperties.Cells[0, 0] := '[properties]';
+
+  CurFileAge := 0;
 end;
 
 procedure TfrmMain.FormResize(Sender: TObject);
@@ -1289,6 +1325,7 @@ end;
 procedure TfrmMain.PropertiesEditURL;
 begin
   dlgOpenHTML.FileName := Project.PrjDir + sgProperties.Cells[1, sgProperties.Row];
+
   if dlgOpenHTML.Execute then
   begin
     SelectedObjectData.URL := ExtractFileName(dlgOpenHTML.FileName);
@@ -1311,6 +1348,32 @@ begin
     reg.WriteString('', 'HHC', hhc);
 
   reg.Free;
+end;
+
+function TfrmMain.SelectTreeItemByUrl(URL: String): Boolean;
+var
+  iItem: Integer;
+  CHMData: TCHMData;
+  ObjectData: TObjectData;
+begin
+  Result := False;
+
+  for iItem := 0 to tvProjectTree.Items.Count - 1 do
+  begin
+    CHMData := TCHMData(tvProjectTree.Items[iItem].Data);
+
+    if CHMData is TProjectData then
+      Continue;
+
+    ObjectData := TObjectData(CHMData);
+    if Pos(AnsiLowerCase(ObjectData.URL), AnsiLowerCase(URL)) > 0 then
+    begin
+      Result := tvProjectTree.Selected <> tvProjectTree.Items[iItem];
+      if Result then
+        tvProjectTree.Selected := tvProjectTree.Items[iItem];
+      Exit;
+    end;
+  end;
 end;
 
 procedure TfrmMain.sgPropertiesDblClick(Sender: TObject);
@@ -1416,6 +1479,7 @@ begin
 
     wbBrowser.Navigate(Project.PrjDir + SelectedObjectData.URL, navNoHistory or navNoReadFromCache or navNoWriteToCache);
     seHTML.Lines.LoadFromFile(Project.PrjDir + SelectedObjectData.URL);
+    FileAge(Project.PrjDir + SelectedObjectData.URL, CurFileAge);
 
     memKeyWords.OnChange := nil;
     memKeyWords.Lines.Text := SelectedObjectData.slKeyWords.Text;
@@ -1427,6 +1491,13 @@ procedure TfrmMain.tvProjectTreeDeletion(Sender: TObject; Node: TTreeNode);
 begin
   if Assigned(Node.Data) then
     TCHMData(Node.Data).Free;
+end;
+
+procedure TfrmMain.wbBrowserBeforeNavigate2(ASender: TObject; const pDisp: IDispatch; const URL, Flags, TargetFrameName, PostData,
+  Headers: OleVariant; var Cancel: WordBool);
+begin
+  if (URL <> 'about:blank') and FileExists(URL) then
+    Cancel := SelectTreeItemByUrl(URL);
 end;
 
 end.
