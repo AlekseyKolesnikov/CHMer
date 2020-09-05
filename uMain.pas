@@ -154,6 +154,7 @@ type
     Project: TProject;
     SelectedObjectData: TObjectData;
     CurFileAge: TDateTime;
+    DoNotNavigate: Boolean;
 
     function AddAfter(const FileName: string): TTreeNode;
     function AddBefore(const FileName: string): TTreeNode;
@@ -178,7 +179,7 @@ type
     procedure PropertiesEditRootName;
     procedure PropertiesEditURL;
     procedure SaveSettingsHHC(hhc: String);
-    function SelectTreeItemByUrl(URL: String): Boolean;
+    procedure SelectTreeItemByUrl(URL: String);
   public
     { Public declarations }
   end;
@@ -199,7 +200,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.7';
+  sVersion = ' 1.0.8';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 var
@@ -691,6 +692,7 @@ begin
   sgProperties.Cells[0, 0] := '[properties]';
 
   CurFileAge := 0;
+  DoNotNavigate := False;
 end;
 
 procedure TfrmMain.FormResize(Sender: TObject);
@@ -1350,14 +1352,12 @@ begin
   reg.Free;
 end;
 
-function TfrmMain.SelectTreeItemByUrl(URL: String): Boolean;
+procedure TfrmMain.SelectTreeItemByUrl(URL: String);
 var
   iItem: Integer;
   CHMData: TCHMData;
   ObjectData: TObjectData;
 begin
-  Result := False;
-
   for iItem := 0 to tvProjectTree.Items.Count - 1 do
   begin
     CHMData := TCHMData(tvProjectTree.Items[iItem].Data);
@@ -1368,9 +1368,9 @@ begin
     ObjectData := TObjectData(CHMData);
     if Pos(AnsiLowerCase(ObjectData.URL), AnsiLowerCase(URL)) > 0 then
     begin
-      Result := tvProjectTree.Selected <> tvProjectTree.Items[iItem];
-      if Result then
+      if tvProjectTree.Selected <> tvProjectTree.Items[iItem] then
         tvProjectTree.Selected := tvProjectTree.Items[iItem];
+
       Exit;
     end;
   end;
@@ -1453,7 +1453,7 @@ begin
   sgProperties.Cells[1, 0] := '[' + tvProjectTree.Selected.Text + ']';
 
   sgProperties.FixedRows := 1;
-  wbBrowser.Navigate('about:blank');
+  if not DoNotNavigate then wbBrowser.Navigate('about:blank');
 
   seHTML.Lines.Clear;
   memKeyWords.OnChange := nil;
@@ -1477,7 +1477,7 @@ begin
     sgProperties.Cells[0, 3] := 'ImageIndex';
     sgProperties.Cells[1, 3] := SelectedObjectData.ImageIndex;
 
-    wbBrowser.Navigate(Project.PrjDir + SelectedObjectData.URL, navNoHistory or navNoReadFromCache or navNoWriteToCache);
+    if not DoNotNavigate then wbBrowser.Navigate(Project.PrjDir + SelectedObjectData.URL, navNoHistory or navNoReadFromCache or navNoWriteToCache);
     seHTML.Lines.LoadFromFile(Project.PrjDir + SelectedObjectData.URL);
     FileAge(Project.PrjDir + SelectedObjectData.URL, CurFileAge);
 
@@ -1495,9 +1495,26 @@ end;
 
 procedure TfrmMain.wbBrowserBeforeNavigate2(ASender: TObject; const pDisp: IDispatch; const URL, Flags, TargetFrameName, PostData,
   Headers: OleVariant; var Cancel: WordBool);
+var
+  FileName: String;
+  i: Integer;
 begin
-  if (URL <> 'about:blank') and FileExists(URL) then
-    Cancel := SelectTreeItemByUrl(URL);
+  if (URL = 'about:blank') or (Copy(URL, 1, 6) = 'ftp://') or (Copy(URL, 1, 7) = 'http://') or (Copy(URL, 1, 8) = 'https://') then Exit;
+
+  FileName := StringReplace(URL, 'file:///', '', [rfIgnoreCase]);
+  FileName := StringReplace(FileName, '/', '\', [rfReplaceAll]);
+  FileName := StringReplace(FileName, '%20', ' ', [rfReplaceAll]); // I think we need to go deeper, but where?
+
+  i := Pos('#', FileName);
+  if i > 0 then SetLength(FileName, i - 1);
+
+  if FileExists(FileName) then
+  try
+    DoNotNavigate := True;
+    SelectTreeItemByUrl(FileName);
+  finally
+    DoNotNavigate := False;
+  end;
 end;
 
 end.
