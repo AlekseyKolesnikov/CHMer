@@ -156,7 +156,7 @@ object frmMain: TfrmMain
   PixelsPerInch = 96
   TextHeight = 13
   object splVertical: TSplitter
-    Left = 300
+    Left = 305
     Top = 0
     Height = 665
     ExplicitLeft = 568
@@ -166,7 +166,7 @@ object frmMain: TfrmMain
   object pnLeft: TPanel
     Left = 0
     Top = 0
-    Width = 300
+    Width = 305
     Height = 665
     Align = alLeft
     BevelOuter = bvNone
@@ -174,7 +174,7 @@ object frmMain: TfrmMain
     object splHorizontalLeft: TSplitter
       Left = 0
       Top = 322
-      Width = 300
+      Width = 305
       Height = 3
       Cursor = crVSplit
       Align = alBottom
@@ -184,7 +184,7 @@ object frmMain: TfrmMain
     object pnProperties: TPanel
       Left = 0
       Top = 325
-      Width = 300
+      Width = 305
       Height = 340
       Align = alBottom
       BevelOuter = bvNone
@@ -193,7 +193,7 @@ object frmMain: TfrmMain
         AlignWithMargins = True
         Left = 2
         Top = 0
-        Width = 298
+        Width = 303
         Height = 338
         Hint = 'Double-click to edit'
         Margins.Left = 2
@@ -219,17 +219,19 @@ object frmMain: TfrmMain
     end
     object pnProjectTree: TPanel
       Left = 0
-      Top = 41
-      Width = 300
-      Height = 281
+      Top = 38
+      Width = 305
+      Height = 284
       Align = alClient
       BevelOuter = bvNone
-      TabOrder = 0
+      TabOrder = 2
+      ExplicitTop = 35
+      ExplicitHeight = 287
       object tvProjectTree: TTreeView
         Left = 26
         Top = 0
-        Width = 274
-        Height = 281
+        Width = 279
+        Height = 284
         Align = alClient
         HideSelection = False
         Images = ilHelp
@@ -239,23 +241,25 @@ object frmMain: TfrmMain
         TabOrder = 0
         OnChange = tvProjectTreeChange
         OnDeletion = tvProjectTreeDeletion
+        ExplicitHeight = 287
       end
       object pnLeftToolbar: TPanel
         Left = 0
         Top = 0
         Width = 26
-        Height = 281
+        Height = 284
         Align = alLeft
         BevelOuter = bvNone
         DoubleBuffered = False
         ParentDoubleBuffered = False
         TabOrder = 1
+        ExplicitHeight = 287
         object tbLeftToolbar: TToolBar
           AlignWithMargins = True
           Left = 2
           Top = 1
           Width = 22
-          Height = 280
+          Height = 283
           Margins.Left = 2
           Margins.Top = 1
           Margins.Right = 0
@@ -266,6 +270,7 @@ object frmMain: TfrmMain
           DisabledImages = ilPopupDisabled
           Images = ilPopup
           TabOrder = 0
+          ExplicitHeight = 286
           object btnAddBefore: TToolButton
             Left = 0
             Top = 0
@@ -328,105 +333,94 @@ object frmMain: TfrmMain
         end
       end
     end
-    object pnTop: TPanel
-      Left = 0
-      Top = 0
-      Width = 300
-      Height = 41
-      Align = alTop
-      BevelOuter = bvNone
-      DoubleBuffered = False
-      ParentDoubleBuffered = False
-      TabOrder = 2
-      object tbMain: TToolBar
-        AlignWithMargins = True
-        Left = 2
-        Top = 4
-        Width = 298
-        Height = 36
-        Margins.Left = 2
-        Margins.Top = 4
-        Margins.Right = 0
-        Margins.Bottom = 0
-        ButtonHeight = 34
-        ButtonWidth = 32
-        DisabledImages = ilGrayed
-        Images = ilNormal
-        TabOrder = 0
-        object btnProjectCreate: TToolButton
-          Left = 0
-          Top = 0
-          Action = actProjectCreate
-        end
-        object btnProjectLoad: TToolButton
-          Left = 32
-          Top = 0
-          Action = actProjectLoad
-        end
-        object btnProjectSave: TToolButton
-          Left = 64
-          Top = 0
-          Action = actProjectSave
-        end
-        object ToolButton4: TToolButton
-          Left = 96
-          Top = 0
-          Width = 6
-          Caption = 'ToolButton4'
-          ImageIndex = 4
-          Style = tbsSeparator
-        end
-        object btnSettings: TToolButton
-          Left = 102
-          Top = 0
-          Hint = 'Settings'
-          Caption = 'Settings'
-          ImageIndex = 6
-          OnClick = btnSettingsClick
-        end
-        object ToolButton3: TToolButton
-          Left = 134
-          Top = 0
-          Width = 6
-          Caption = 'ToolButton3'
-          ImageIndex = 4
-          Style = tbsSeparator
-        end
-        object btnUpdateHTML: TToolButton
-          Left = 140
-          Top = 0
-          Action = actUpdateHTML
-        end
-        object btnCheckNotUsed: TToolButton
-          Left = 172
-          Top = 0
-          Action = actCheckNotUsed
-        end
-        object btnEdit: TToolButton
-          Left = 204
-          Top = 0
-          Action = actEditHTML
-        end
-        object ToolButton2: TToolButton
-          Left = 236
-          Top = 0
-          Width = 6
-          Caption = 'ToolButton2'
-          ImageIndex = 3
-          Style = tbsSeparator
-        end
-        object btnProjectCompile: TToolButton
-          Left = 242
-          Top = 0
-          Action = actProjectCompile
-        end
+    object tbMain: TToolBar
+      AlignWithMargins = True
+      Left = 2
+      Top = 4
+      Width = 303
+      Margins.Left = 2
+      Margins.Top = 4
+      Margins.Right = 0
+      Margins.Bottom = 2
+      AutoSize = True
+      ButtonHeight = 32
+      ButtonWidth = 32
+      DisabledImages = ilGrayed
+      Images = ilNormal
+      TabOrder = 0
+      object btnProjectCreate: TToolButton
+        Left = 0
+        Top = 0
+        Action = actProjectCreate
+      end
+      object btnProjectLoad: TToolButton
+        Left = 32
+        Top = 0
+        Action = actProjectLoad
+      end
+      object btnProjectSave: TToolButton
+        Left = 64
+        Top = 0
+        Action = actProjectSave
+      end
+      object ToolButton4: TToolButton
+        Left = 96
+        Top = 0
+        Width = 6
+        Caption = 'ToolButton4'
+        ImageIndex = 4
+        Style = tbsSeparator
+      end
+      object btnSettings: TToolButton
+        Left = 102
+        Top = 0
+        Hint = 'Settings'
+        Caption = 'Settings'
+        ImageIndex = 6
+        OnClick = btnSettingsClick
+      end
+      object ToolButton3: TToolButton
+        Left = 134
+        Top = 0
+        Width = 6
+        Caption = 'ToolButton3'
+        ImageIndex = 4
+        Style = tbsSeparator
+      end
+      object btnUpdateHTML: TToolButton
+        Left = 140
+        Top = 0
+        Action = actUpdateHTML
+      end
+      object btnCheckNotUsed: TToolButton
+        Left = 172
+        Top = 0
+        Action = actCheckNotUsed
+      end
+      object btnEdit: TToolButton
+        Left = 204
+        Top = 0
+        Action = actEditHTML
+      end
+      object ToolButton2: TToolButton
+        Left = 236
+        Top = 0
+        Width = 6
+        Caption = 'ToolButton2'
+        ImageIndex = 3
+        Style = tbsSeparator
+      end
+      object btnProjectCompile: TToolButton
+        Left = 242
+        Top = 0
+        Action = actProjectCompile
       end
     end
   end
   object pnRight: TPanel
-    Left = 303
+    Left = 308
     Top = 0
-    Width = 881
+    Width = 876
     Height = 665
     Align = alClient
     BevelOuter = bvNone
@@ -434,7 +428,7 @@ object frmMain: TfrmMain
     object splHorizontalRight: TSplitter
       Left = 0
       Top = 502
-      Width = 881
+      Width = 876
       Height = 3
       Cursor = crVSplit
       Align = alBottom
@@ -444,7 +438,7 @@ object frmMain: TfrmMain
     object pnInfo: TPanel
       Left = 0
       Top = 505
-      Width = 881
+      Width = 876
       Height = 160
       Align = alBottom
       BevelOuter = bvNone
@@ -453,7 +447,7 @@ object frmMain: TfrmMain
         AlignWithMargins = True
         Left = 0
         Top = 0
-        Width = 879
+        Width = 874
         Height = 158
         Margins.Left = 0
         Margins.Top = 0
@@ -479,13 +473,16 @@ object frmMain: TfrmMain
     object pnData: TPanel
       Left = 0
       Top = 0
-      Width = 881
+      Width = 876
       Height = 502
       Align = alClient
       BevelOuter = bvNone
       TabOrder = 0
+      DesignSize = (
+        876
+        502)
       object splVerticalRight: TSplitter
-        Left = 672
+        Left = 667
         Top = 0
         Height = 502
         Align = alRight
@@ -493,8 +490,8 @@ object frmMain: TfrmMain
         ExplicitLeft = 308
       end
       object lbKeywords: TLabel
-        Left = 677
-        Top = 25
+        Left = 672
+        Top = 17
         Width = 47
         Height = 13
         Caption = 'Keywords'
@@ -502,11 +499,11 @@ object frmMain: TfrmMain
       object pcMainPages: TPageControl
         AlignWithMargins = True
         Left = 0
-        Top = 21
-        Width = 672
-        Height = 481
+        Top = 18
+        Width = 667
+        Height = 484
         Margins.Left = 0
-        Margins.Top = 21
+        Margins.Top = 18
         Margins.Right = 0
         Margins.Bottom = 0
         ActivePage = tsPreview
@@ -517,8 +514,8 @@ object frmMain: TfrmMain
           object wbBrowser: TWebBrowser
             Left = 0
             Top = 0
-            Width = 664
-            Height = 453
+            Width = 659
+            Height = 456
             Align = alClient
             TabOrder = 0
             OnBeforeNavigate2 = wbBrowserBeforeNavigate2
@@ -527,7 +524,7 @@ object frmMain: TfrmMain
             ExplicitWidth = 300
             ExplicitHeight = 150
             ControlData = {
-              4C000000A0440000D22E00000000000000000000000000000000000000000000
+              4C0000001C440000212F00000000000000000000000000000000000000000000
               000000004C000000000000000000000001000000E0D057007335CF11AE690800
               2B2E126208000000000000004C0000000114020000000000C000000000000046
               8000000000000000000000000000000000000000000000000000000000000000
@@ -537,11 +534,15 @@ object frmMain: TfrmMain
         object tsHTML: TTabSheet
           Caption = 'HTML'
           ImageIndex = 1
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 453
           object seHTML: TSynEdit
             Left = 0
             Top = 32
-            Width = 664
-            Height = 421
+            Width = 659
+            Height = 424
             Align = alClient
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
@@ -567,11 +568,12 @@ object frmMain: TfrmMain
             Highlighter = synHTMLSyn
             RightEdge = 120
             FontSmoothing = fsmNone
+            ExplicitHeight = 421
           end
           object pnHTMLTop: TPanel
             Left = 0
             Top = 0
-            Width = 664
+            Width = 659
             Height = 32
             Align = alTop
             BevelOuter = bvNone
@@ -581,7 +583,7 @@ object frmMain: TfrmMain
             object tbHTML: TToolBar
               Left = 0
               Top = 0
-              Width = 664
+              Width = 659
               Height = 30
               Margins.Left = 1
               Margins.Top = 1
@@ -603,12 +605,12 @@ object frmMain: TfrmMain
       end
       object memKeyWords: TMemo
         AlignWithMargins = True
-        Left = 675
-        Top = 41
+        Left = 670
+        Top = 38
         Width = 206
-        Height = 461
+        Height = 464
         Margins.Left = 0
-        Margins.Top = 41
+        Margins.Top = 38
         Margins.Right = 0
         Margins.Bottom = 0
         Align = alRight
@@ -616,13 +618,39 @@ object frmMain: TfrmMain
         TabOrder = 1
         OnChange = memKeyWordsChange
       end
+      object cmbFindType: TComboBox
+        Left = 337
+        Top = 9
+        Width = 156
+        Height = 21
+        Style = csDropDownList
+        Anchors = [akTop, akRight]
+        DoubleBuffered = False
+        ItemIndex = 0
+        ParentDoubleBuffered = False
+        TabOrder = 2
+        Text = 'Find file by file name'
+        Items.Strings = (
+          'Find file by file name'
+          'Find file by text'
+          'Find file by text (any case)')
+      end
+      object edFindText: TEdit
+        Left = 495
+        Top = 9
+        Width = 170
+        Height = 21
+        Anchors = [akTop, akRight]
+        TabOrder = 3
+        TextHint = 'Search'
+      end
     end
   end
   object ilHelp: TImageList
     Left = 208
     Top = 128
     Bitmap = {
-      494C01012C005000C40010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01012C005000D80010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       000000000000360000002800000040000000C0000000010020000000000000C0
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -2396,6 +2424,11 @@ object frmMain: TfrmMain
       ImageIndex = 4
       OnExecute = actNewEmptyExecute
     end
+    object actFind: TAction
+      ShortCut = 13
+      OnExecute = actFindExecute
+      OnUpdate = actFindUpdate
+    end
   end
   object ilNormal: TImageList
     ColorDepth = cd32Bit
@@ -2404,7 +2437,7 @@ object frmMain: TfrmMain
     Left = 699
     Top = 144
     Bitmap = {
-      494C01010800A8009C0018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C01010800A800C80018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       000000000000360000002800000060000000480000000100200000000000006C
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -3309,7 +3342,7 @@ object frmMain: TfrmMain
     Left = 771
     Top = 144
     Bitmap = {
-      494C010108006000540018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C010108006000800018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       000000000000360000002800000060000000480000000100200000000000006C
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -4214,7 +4247,7 @@ object frmMain: TfrmMain
     Left = 99
     Top = 196
     Bitmap = {
-      494C01010A00180030000F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C01010A00180044000F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       00000000000036000000280000003C0000002D0000000100200000000000302A
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -4619,11 +4652,14 @@ object frmMain: TfrmMain
   object fsLayout: TFormStorage
     IniFileName = 'SOFTWARE'
     IniSection = 'CHMer'
+    OnRestorePlacement = fsLayoutRestorePlacement
     StoredProps.Strings = (
       'pnProperties.Height'
       'pnInfo.Height'
       'pnLeft.Width'
-      'memKeyWords.Width')
+      'memKeyWords.Width'
+      'cmbFindType.ItemIndex'
+      'edFindText.Text')
     StoredValues = <>
     Left = 1035
     Top = 140
@@ -4635,7 +4671,7 @@ object frmMain: TfrmMain
     Left = 171
     Top = 196
     Bitmap = {
-      494C01010A00F00008010F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C01010A00F0001C010F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       00000000000036000000280000003C0000002D0000000100200000000000302A
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000

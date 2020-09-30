@@ -92,7 +92,6 @@ type
     dlgSaveProject: TSaveDialog;
     fsLayout: TFormStorage;
     actCheckNotUsed: TAction;
-    pnTop: TPanel;
     tbMain: TToolBar;
     btnProjectCreate: TToolButton;
     btnProjectLoad: TToolButton;
@@ -112,6 +111,9 @@ type
     actEditHTML: TAction;
     btnNewEmpty: TToolButton;
     actNewEmpty: TAction;
+    cmbFindType: TComboBox;
+    edFindText: TEdit;
+    actFind: TAction;
     procedure FormCreate(Sender: TObject);
     procedure tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
     procedure actProjectLoadExecute(Sender: TObject);
@@ -149,6 +151,9 @@ type
     procedure actNewEmptyExecute(Sender: TObject);
     procedure wbBrowserBeforeNavigate2(ASender: TObject; const pDisp: IDispatch; const URL, Flags, TargetFrameName, PostData,
       Headers: OleVariant; var Cancel: WordBool);
+    procedure actFindExecute(Sender: TObject);
+    procedure actFindUpdate(Sender: TObject);
+    procedure fsLayoutRestorePlacement(Sender: TObject);
   private
     { Private declarations }
     Project: TProject;
@@ -200,7 +205,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.8';
+  sVersion = ' 1.0.9';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 var
@@ -259,6 +264,76 @@ begin
   end;
 
   ShellExecute(0, nil, PWideChar(editor), PWideChar(Project.PrjDir + SelectedObjectData.URL), PWideChar(Project.PrjDir), SW_SHOWNORMAL);
+end;
+
+procedure TfrmMain.actFindExecute(Sender: TObject);
+var
+  iStart, iCurrent: Integer;
+  CHMData: TCHMData;
+  ObjectData: TObjectData;
+  URL: String;
+  Found: Boolean;
+  slText: TStringList;
+begin
+  if edFindText.Text = '' then
+    Exit;
+
+  if Assigned(tvProjectTree.Selected) then
+    iStart := tvProjectTree.Selected.AbsoluteIndex
+  else
+    iStart := 0;
+
+  Found := False;
+
+  for iCurrent := iStart + 1 to tvProjectTree.Items.Count - 1 do
+  begin
+    CHMData := TCHMData(tvProjectTree.Items[iCurrent].Data);
+
+    if CHMData is TProjectData then
+      Continue;
+
+    ObjectData := TObjectData(CHMData);
+
+    if cmbFindType.ItemIndex = 0 then
+    begin
+      URL := AnsiLowerCase(ObjectData.URL);
+
+      if Pos(AnsiLowerCase(edFindText.Text), URL) > 0 then
+      begin
+        tvProjectTree.Selected := tvProjectTree.Items[iCurrent];
+        Found := True;
+        Break;
+      end;
+    end
+    else
+    begin
+      if FileExists(Project.PrjDir + ObjectData.URL) then
+      begin
+        slText := TStringList.Create;
+        try
+          slText.LoadFromFile(Project.PrjDir + ObjectData.URL);
+
+          if (cmbFindType.ItemIndex = 1) and (Pos(edFindText.Text, slText.Text) > 0) or
+             (cmbFindType.ItemIndex = 2) and (Pos(AnsiLowerCase(edFindText.Text), AnsiLowerCase(slText.Text)) > 0) then
+          begin
+            tvProjectTree.Selected := tvProjectTree.Items[iCurrent];
+            Found := True;
+            Break;
+          end;
+        except
+        end;
+        slText.Free;
+      end;
+    end;
+  end;
+
+  if not Found then
+    ShowMessage('Not found.');
+end;
+
+procedure TfrmMain.actFindUpdate(Sender: TObject);
+begin
+  actFind.Enabled := edFindText.Focused;
 end;
 
 procedure TfrmMain.actHTMLSaveExecute(Sender: TObject);
@@ -705,6 +780,11 @@ begin
   Self.OnShow := nil;
   if (ParamCount > 0) and (FileExists(ParamStr(1))) then
     LoadProject(ParamStr(1));
+end;
+
+procedure TfrmMain.fsLayoutRestorePlacement(Sender: TObject);
+begin
+  splVerticalRightMoved(Sender);
 end;
 
 function TfrmMain.GetAddContents: Boolean;
@@ -1419,6 +1499,9 @@ end;
 procedure TfrmMain.splVerticalRightMoved(Sender: TObject);
 begin
   lbKeywords.Left := splVerticalRight.Left + 5;
+  edFindText.Left := splVerticalRight.Left - 2 - edFindText.Width;
+  cmbFindType.Left := edFindText.Left - cmbFindType.Width - 2;
+  pcMainPages.Refresh;
 end;
 
 procedure TfrmMain.tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
