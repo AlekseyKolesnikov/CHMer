@@ -9,7 +9,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, ExtCtrls, ToolWin, ComCtrls, Grids, ImgList, OleCtrls,
   SHDocVw, SynEditHighlighter, SynHighlighterHtml, SynEdit, StdCtrls, System.ImageList, Vcl.Menus, System.Actions, Vcl.ActnList, RxPlacemnt,
-  uHelpProject;
+  uHelpProject, SynEditMiscClasses, SynEditSearch, SynCompletionProposal;
 
 type
   TAddFile = function (const FileName: String): TTreeNode of object;
@@ -114,6 +114,17 @@ type
     cmbFindType: TComboBox;
     edFindText: TEdit;
     actFind: TAction;
+    seSearch: TSynEditSearch;
+    dlgFind: TFindDialog;
+    dlgReplace: TReplaceDialog;
+    btnFind: TToolButton;
+    actHTMLFind: TAction;
+    actHTMLReplace: TAction;
+    pmSearch: TPopupMenu;
+    miHTMLFind: TMenuItem;
+    miHTMLReplace: TMenuItem;
+    scTypes: TSynCompletionProposal;
+    NewemptyHTML1: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
     procedure actProjectLoadExecute(Sender: TObject);
@@ -154,6 +165,10 @@ type
     procedure actFindExecute(Sender: TObject);
     procedure actFindUpdate(Sender: TObject);
     procedure fsLayoutRestorePlacement(Sender: TObject);
+    procedure actHTMLFindExecute(Sender: TObject);
+    procedure actHTMLReplaceExecute(Sender: TObject);
+    procedure dlgFindFind(Sender: TObject);
+    procedure dlgReplaceReplace(Sender: TObject);
   private
     { Private declarations }
     Project: TProject;
@@ -197,15 +212,15 @@ implementation
 {$R *.dfm}
 
 uses
-  System.UITypes, StrUtils, Registry, ShellAPI, HTMLTools, SystemUtils, uSelectImage, uAddProperty, uEditValue, uEditFont, uSettings,
-  uAddNewEmpty;
+  System.UITypes, StrUtils, Registry, ShellAPI, SynEditTypes, HTMLTools, SystemUtils, uSelectImage, uAddProperty, uEditValue,
+  uEditFont, uSettings, uAddNewEmpty;
 
 const
   sContent = 'Content';
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.9';
+  sVersion = ' 1.0.10';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 var
@@ -334,6 +349,16 @@ end;
 procedure TfrmMain.actFindUpdate(Sender: TObject);
 begin
   actFind.Enabled := edFindText.Focused;
+end;
+
+procedure TfrmMain.actHTMLFindExecute(Sender: TObject);
+begin
+  dlgFind.Execute;
+end;
+
+procedure TfrmMain.actHTMLReplaceExecute(Sender: TObject);
+begin
+  dlgReplace.Execute;
 end;
 
 procedure TfrmMain.actHTMLSaveExecute(Sender: TObject);
@@ -521,6 +546,8 @@ begin
   actAddChild.Enabled := Assigned(Project);
   actNewEmpty.Enabled := actAddChild.Enabled;
 
+  actHTMLFind.Enabled := pcMainPages.ActivePage = tsHTML;
+  actHTMLReplace.Enabled := actHTMLFind.Enabled;
 
   // Monitor file changes in external application
 
@@ -746,6 +773,42 @@ begin
 
   Self.Caption := sTitle + sVersion;
   Application.Title := sTitle;
+end;
+
+procedure TfrmMain.dlgFindFind(Sender: TObject);
+var
+  Options: TSynSearchOptions;
+begin
+  Options := [];
+  if not (frDown in dlgFind.Options) then
+    Include(Options, ssoBackwards);
+  if frMatchCase in dlgFind.Options then
+    Include(Options, ssoMatchCase);
+  if frWholeWord in dlgFind.Options then
+    Include(Options, ssoWholeWord);
+  if seHTML.SearchReplace(dlgFind.FindText, dlgFind.FindText, Options) = 0 then
+    ShowMessage('Not found.');
+end;
+
+procedure TfrmMain.dlgReplaceReplace(Sender: TObject);
+var
+  Options: TSynSearchOptions;
+begin
+  if (frReplace in dlgReplace.Options) then
+    Options := [ssoPrompt, ssoReplace]
+  else
+    Options := [];
+  if (frReplaceAll in dlgReplace.Options) then
+    Include(Options, ssoReplaceAll);
+
+  if not (frDown in dlgReplace.Options) then
+    Include(Options, ssoBackwards);
+  if frMatchCase in dlgReplace.Options then
+    Include(Options, ssoMatchCase);
+  if frWholeWord in dlgReplace.Options then
+    Include(Options, ssoWholeWord);
+  if seHTML.SearchReplace(dlgReplace.FindText, dlgReplace.ReplaceText, Options) = 0 then
+    ShowMessage('Not found.');
 end;
 
 procedure TfrmMain.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
