@@ -220,7 +220,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.10';
+  sVersion = ' 1.0.11';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 var
@@ -525,26 +525,32 @@ procedure TfrmMain.actProjectSaveUpdate(Sender: TObject);
 var
   CHMData: TCHMData;
   aFileAge: TDateTime;
+  ProjectTreeFocused: Boolean;
 begin
+  ProjectTreeFocused := tvProjectTree.Focused;
+
   actHTMLSave.Enabled := seHTML.Modified;
   actProjectSave.Enabled := Assigned(Project) and Project.Modified;
   actProjectCompile.Enabled := Assigned(Project);
   actUpdateHTML.Enabled := Assigned(Project);
   actCheckNotUsed.Enabled := Assigned(Project) and (Project.ProjectFile <> '');
 
-  actAddBefore.Enabled := Assigned(Project) and Assigned(SelectedObjectData);
+  actEditHTML.Enabled := Assigned(Project) and Assigned(SelectedObjectData);
+
+  actAddBefore.Enabled := ProjectTreeFocused and actEditHTML.Enabled;
   actAddAfter.Enabled := actAddBefore.Enabled;
+
+  actAddChild.Enabled := ProjectTreeFocused and Assigned(Project);
+  actNewEmpty.Enabled := actAddChild.Enabled;
+
   actDelete.Enabled := actAddBefore.Enabled;
-  actEditHTML.Enabled := actAddBefore.Enabled;
 
   actMoveUp.Enabled := actAddBefore.Enabled and (tvProjectTree.Selected.GetPrev <> tvProjectTree.Items[0]) and (tvProjectTree.Selected.getPrevSibling <> nil);
   actMoveDown.Enabled := actAddBefore.Enabled and (tvProjectTree.Selected.getNextSibling <> nil);
   actLevelUp.Enabled := actAddBefore.Enabled and (tvProjectTree.Selected.Parent <> tvProjectTree.Items[0]);
   actLevelDown.Enabled := actAddBefore.Enabled and (tvProjectTree.Selected.getPrevSibling <> nil);
-  actLevelInside.Enabled := actMoveDown.Enabled;
 
-  actAddChild.Enabled := Assigned(Project);
-  actNewEmpty.Enabled := actAddChild.Enabled;
+  actLevelInside.Enabled := actMoveDown.Enabled;
 
   actHTMLFind.Enabled := pcMainPages.ActivePage = tsHTML;
   actHTMLReplace.Enabled := actHTMLFind.Enabled;
@@ -1599,7 +1605,8 @@ begin
   sgProperties.Cells[1, 0] := '[' + tvProjectTree.Selected.Text + ']';
 
   sgProperties.FixedRows := 1;
-  if not DoNotNavigate then wbBrowser.Navigate('about:blank');
+  if not DoNotNavigate then
+    wbBrowser.Navigate('about:blank');
 
   seHTML.Lines.Clear;
   memKeyWords.OnChange := nil;
@@ -1623,7 +1630,9 @@ begin
     sgProperties.Cells[0, 3] := 'ImageIndex';
     sgProperties.Cells[1, 3] := SelectedObjectData.ImageIndex;
 
-    if not DoNotNavigate then wbBrowser.Navigate(Project.PrjDir + SelectedObjectData.URL, navNoHistory or navNoReadFromCache or navNoWriteToCache);
+    DoNotNavigate := True;
+    wbBrowser.Navigate(Project.PrjDir + SelectedObjectData.URL, navNoHistory or navNoReadFromCache or navNoWriteToCache);
+
     seHTML.Lines.LoadFromFile(Project.PrjDir + SelectedObjectData.URL);
     FileAge(Project.PrjDir + SelectedObjectData.URL, CurFileAge);
 
@@ -1646,6 +1655,12 @@ var
   i: Integer;
 begin
   if (URL = 'about:blank') or (Copy(URL, 1, 6) = 'ftp://') or (Copy(URL, 1, 7) = 'http://') or (Copy(URL, 1, 8) = 'https://') then Exit;
+
+  if DoNotNavigate then
+  begin
+    DoNotNavigate := False;
+    Exit;
+  end;
 
   FileName := StringReplace(URL, 'file:///', '', [rfIgnoreCase]);
   FileName := StringReplace(FileName, '/', '\', [rfReplaceAll]);
