@@ -7,7 +7,7 @@ Website: https://github.com/AlekseyKolesnikov/CHMer
 A simple CHM creation tool.
 
 Requires:
-  * Microsoft HTML Help Workshop (https://www.microsoft.com/en-us/download/details.aspx?id=21138)
+  * Microsoft HTML Help Workshop (https://blu-disc.net/download/htmlhelp.exe)
 
 Uses: 
   * SynEdit (https://github.com/SynEdit/SynEdit)
