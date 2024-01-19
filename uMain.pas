@@ -220,7 +220,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.11';
+  sVersion = ' 1.0.12';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 var
@@ -278,7 +278,7 @@ begin
       Exit;
   end;
 
-  ShellExecute(0, nil, PWideChar(editor), PWideChar(Project.PrjDir + SelectedObjectData.URL), PWideChar(Project.PrjDir), SW_SHOWNORMAL);
+  ShellExecute(0, nil, PWideChar(editor), PWideChar('"' + Project.PrjDir + SelectedObjectData.URL + '"'), PWideChar(Project.PrjDir), SW_SHOWNORMAL);
 end;
 
 procedure TfrmMain.actFindExecute(Sender: TObject);
