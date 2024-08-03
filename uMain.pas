@@ -222,10 +222,11 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.13';
+  sVersion = ' 1.0.14';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 begin
+  memInfo.Lines.Clear;
   ValidateNotUsedHTMLs;
   ValidateSrcHref;
 end;
@@ -424,10 +425,11 @@ begin
     btnProjectCompile.Down := False;
   end;
 
-
   S := Trim(memInfo.Lines.Text);
+
   while Pos(#$D#$A#$D#$A, S) > 0 do
     S := StringReplace(S, #$D#$A#$D#$A, #$D#$A, [rfReplaceAll]);
+
   memInfo.Lines.Clear;
   memInfo.Lines.Add(S);
 end;
@@ -1625,7 +1627,6 @@ var
   S, sRef: string;
   matches: TMatchCollection;
 begin
-  memInfo.Lines.Clear;
   slHTML := TStringList.Create;
   rxRef := TRegEx.Create('src="([^"]+)"|href="([^"]+)"');
 
@@ -1691,8 +1692,6 @@ begin
   slFiles := GetFileList(Project.PrjDir, ['*.html', '*.htm']);
   slFilesBackup := TStringList.Create;
   slFilesBackup.Text := slFiles.Text;
-
-  memInfo.Lines.Clear;
 
   for i := 1 to tvProjectTree.Items.Count - 1 do
   begin
