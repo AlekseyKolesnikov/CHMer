@@ -200,6 +200,8 @@ type
     procedure PropertiesEditURL;
     procedure SaveSettingsHHC(hhc: String);
     procedure SelectTreeItemByUrl(URL: String);
+    procedure ValidateSrcHref;
+    procedure ValidateNotUsedHTMLs;
   public
     { Public declarations }
   end;
@@ -212,54 +214,20 @@ implementation
 {$R *.dfm}
 
 uses
-  System.UITypes, StrUtils, Registry, ShellAPI, SynEditTypes, HTMLTools, SystemUtils, uSelectImage, uAddProperty, uEditValue,
-  uEditFont, uSettings, uAddNewEmpty;
+  System.UITypes, System.RegularExpressions, StrUtils, Registry, ShellAPI, SynEditTypes, HTMLTools, SystemUtils,
+  uSelectImage, uAddProperty, uEditValue, uEditFont, uSettings, uAddNewEmpty;
 
 const
   sContent = 'Content';
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.12';
+  sVersion = ' 1.0.13';
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
-var
-  slFiles, slFilesBackup: TStringList;
-  i, j: Integer;
-  ObjectData: TObjectData;
 begin
-  if (not Assigned(Project)) or (Project.PrjDir = '') then
-    Exit;
-
-  slFiles := GetFileList(Project.PrjDir, ['*.html', '*.htm']);
-  slFilesBackup := TStringList.Create;
-  slFilesBackup.Text := slFiles.Text;
-
-  memInfo.Lines.Clear;
-
-  for i := 1 to tvProjectTree.Items.Count - 1 do
-  begin
-    ObjectData := TObjectData(tvProjectTree.Items[i].Data);
-    if ObjectData.URL <> '' then
-    begin
-      j := slFiles.IndexOf(Trim(ObjectData.URL));
-      if j < 0 then
-      begin
-        if slFilesBackup.IndexOf(Trim(ObjectData.URL)) > -1 then
-          memInfo.Lines.Add('File is used twice: ' + ObjectData.URL)
-        else
-          memInfo.Lines.Add('File not found:     ' + ObjectData.URL);
-      end
-      else
-        slFiles.Delete(j);
-    end;
-  end;
-
-  for i := 0 to slFiles.Count - 1 do
-    memInfo.Lines.Add('File not used:      ' + slFiles[i]);
-
-  slFiles.Free;
-  slFilesBackup.Free;
+  ValidateNotUsedHTMLs;
+  ValidateSrcHref;
 end;
 
 procedure TfrmMain.actEditHTMLExecute(Sender: TObject);
@@ -1646,6 +1614,109 @@ procedure TfrmMain.tvProjectTreeDeletion(Sender: TObject; Node: TTreeNode);
 begin
   if Assigned(Node.Data) then
     TCHMData(Node.Data).Free;
+end;
+
+procedure TfrmMain.ValidateSrcHref;
+var
+  ObjectData: TObjectData;
+  slHTML: TStringList;
+  rxRef: TRegEx;
+  i, j, k: Integer;
+  S, sRef: string;
+  matches: TMatchCollection;
+begin
+  memInfo.Lines.Clear;
+  slHTML := TStringList.Create;
+  rxRef := TRegEx.Create('src="([^"]+)"|href="([^"]+)"');
+
+  for i := 1 to tvProjectTree.Items.Count - 1 do
+  begin
+    ObjectData := TObjectData(tvProjectTree.Items[i].Data);
+
+    if FileExists(Project.PrjDir + ObjectData.URL) then
+    begin
+      slHTML.LoadFromFile(Project.PrjDir + ObjectData.URL);
+
+      for j := 0 to slHTML.Count - 1 do
+        slHTML[j] := AnsiLowerCase(Trim(slHTML[j]));
+
+      S := StringReplace(slHTML.Text, #13#10, ' ', [rfReplaceAll]);
+      S := StringReplace(S, #13, ' ', [rfReplaceAll]);
+      S := StringReplace(S, #10, ' ', [rfReplaceAll]);
+      S := StringReplace(S, '''', '"', [rfReplaceAll]);
+
+      while Pos('  ', S) > 0 do
+        S := StringReplace(S, '  ', ' ', [rfReplaceAll]);
+
+      S := StringReplace(S, ' src =', ' src=', [rfReplaceAll]);
+      S := StringReplace(S, ' href =', ' href=', [rfReplaceAll]);
+      S := StringReplace(S, '= "', '="', [rfReplaceAll]);
+
+      matches := rxRef.Matches(S);
+
+      for j := 0 to matches.Count - 1 do
+      begin
+        sRef := matches[j].Value;
+        k := Pos('"', sRef);
+        Delete(sRef, 1, k);
+        SetLength(sRef, Length(sRef) - 1);
+
+        if (Pos('://', sRef) > 0) or (Pos('mailto:', sRef) > 0) then
+          Continue;
+
+        sRef := StringReplace(sRef, '/', '\', [rfReplaceAll]);
+
+        k := Pos('#', sRef);
+        if k > 0 then
+          SetLength(sRef, k - 1);
+
+        if not FileExists(Project.PrjDir + sRef) then
+          memInfo.Lines.Add(ObjectData.URL + ': missed file ' + sRef);
+      end;
+    end;
+  end;
+
+  slHTML.Free;
+end;
+
+procedure TfrmMain.ValidateNotUsedHTMLs;
+var
+  slFiles, slFilesBackup: TStringList;
+  i, j: Integer;
+  ObjectData: TObjectData;
+begin
+  if (not Assigned(Project)) or (Project.PrjDir = '') then
+    Exit;
+
+  slFiles := GetFileList(Project.PrjDir, ['*.html', '*.htm']);
+  slFilesBackup := TStringList.Create;
+  slFilesBackup.Text := slFiles.Text;
+
+  memInfo.Lines.Clear;
+
+  for i := 1 to tvProjectTree.Items.Count - 1 do
+  begin
+    ObjectData := TObjectData(tvProjectTree.Items[i].Data);
+    if ObjectData.URL <> '' then
+    begin
+      j := slFiles.IndexOf(Trim(ObjectData.URL));
+      if j < 0 then
+      begin
+        if slFilesBackup.IndexOf(Trim(ObjectData.URL)) > -1 then
+          memInfo.Lines.Add('File is used twice: ' + ObjectData.URL)
+        else
+          memInfo.Lines.Add('File not found:     ' + ObjectData.URL);
+      end
+      else
+        slFiles.Delete(j);
+    end;
+  end;
+
+  for i := 0 to slFiles.Count - 1 do
+    memInfo.Lines.Add('File not used:      ' + slFiles[i]);
+
+  slFiles.Free;
+  slFilesBackup.Free;
 end;
 
 procedure TfrmMain.wbBrowserBeforeNavigate2(ASender: TObject; const pDisp: IDispatch; const URL, Flags, TargetFrameName, PostData,

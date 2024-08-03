@@ -220,19 +220,17 @@ object frmMain: TfrmMain
     end
     object pnProjectTree: TPanel
       Left = 0
-      Top = 38
+      Top = 35
       Width = 305
-      Height = 284
+      Height = 287
       Align = alClient
       BevelOuter = bvNone
       TabOrder = 2
-      ExplicitTop = 35
-      ExplicitHeight = 287
       object tvProjectTree: TTreeView
         Left = 26
         Top = 0
         Width = 279
-        Height = 284
+        Height = 287
         Align = alClient
         HideSelection = False
         Images = ilHelp
@@ -242,19 +240,17 @@ object frmMain: TfrmMain
         TabOrder = 0
         OnChange = tvProjectTreeChange
         OnDeletion = tvProjectTreeDeletion
-        ExplicitHeight = 287
       end
       object pnLeftToolbar: TPanel
         Left = 0
         Top = 0
         Width = 26
-        Height = 284
+        Height = 287
         Align = alLeft
         BevelOuter = bvNone
         DoubleBuffered = False
         ParentDoubleBuffered = False
         TabOrder = 1
-        ExplicitHeight = 287
         object tbLeftToolbar: TToolBar
           AlignWithMargins = True
           Left = 2
@@ -339,6 +335,7 @@ object frmMain: TfrmMain
       Left = 2
       Top = 4
       Width = 303
+      Height = 29
       Margins.Left = 2
       Margins.Top = 4
       Margins.Right = 0
@@ -512,6 +509,10 @@ object frmMain: TfrmMain
         TabOrder = 0
         object tsPreview: TTabSheet
           Caption = 'Preview'
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 0
           object wbBrowser: TWebBrowser
             Left = 0
             Top = 0
@@ -535,6 +536,10 @@ object frmMain: TfrmMain
         object tsHTML: TTabSheet
           Caption = 'HTML'
           ImageIndex = 1
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 0
           object seHTML: TSynEdit
             Left = 0
             Top = 32
@@ -655,7 +660,7 @@ object frmMain: TfrmMain
     Left = 208
     Top = 128
     Bitmap = {
-      494C01012C005000E00010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
+      494C01012C005000040010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       000000000000360000002800000040000000C0000000010020000000000000C0
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -2416,7 +2421,7 @@ object frmMain: TfrmMain
     end
     object actCheckNotUsed: TAction
       Caption = 'Check not used HTMLs'
-      Hint = 'Check unused HTMLs'
+      Hint = 'Validate the project'
       ImageIndex = 5
       OnExecute = actCheckNotUsedExecute
     end
@@ -2458,7 +2463,7 @@ object frmMain: TfrmMain
     Left = 699
     Top = 144
     Bitmap = {
-      494C01010900A800DC0018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C01010900A800040018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       000000000000360000002800000060000000480000000100200000000000006C
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -3363,7 +3368,7 @@ object frmMain: TfrmMain
     Left = 771
     Top = 144
     Bitmap = {
-      494C010109006000940018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C010109006000040018001800FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       000000000000360000002800000060000000480000000100200000000000006C
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -4268,7 +4273,7 @@ object frmMain: TfrmMain
     Left = 99
     Top = 196
     Bitmap = {
-      494C01010A0018004C000F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C01010A00180004000F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       00000000000036000000280000003C0000002D0000000100200000000000302A
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
@@ -4692,7 +4697,7 @@ object frmMain: TfrmMain
     Left = 171
     Top = 196
     Bitmap = {
-      494C01010A00F00024010F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
+      494C01010A00F00004000F000F00FFFFFFFF2110FFFFFFFFFFFFFFFF424D3600
       00000000000036000000280000003C0000002D0000000100200000000000302A
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000000000000000000000000000000000000000
