@@ -504,7 +504,7 @@ object frmMain: TfrmMain
         Margins.Top = 18
         Margins.Right = 0
         Margins.Bottom = 0
-        ActivePage = tsPreview
+        ActivePage = tsHTML
         Align = alClient
         TabOrder = 0
         object tsPreview: TTabSheet
@@ -521,10 +521,8 @@ object frmMain: TfrmMain
             Align = alClient
             TabOrder = 0
             OnBeforeNavigate2 = wbBrowserBeforeNavigate2
-            ExplicitLeft = 464
-            ExplicitTop = 208
-            ExplicitWidth = 300
-            ExplicitHeight = 150
+            ExplicitLeft = 2
+            ExplicitTop = 1
             ControlData = {
               4C0000001C440000212F00000000000000000000000000000000000000000000
               000000004C000000000000000000000001000000E0D057007335CF11AE690800
@@ -551,6 +549,7 @@ object frmMain: TfrmMain
             Font.Height = -13
             Font.Name = 'Courier New'
             Font.Style = []
+            PopupMenu = pmHTML
             TabOrder = 0
             CodeFolding.GutterShapeSize = 11
             CodeFolding.CollapsedLineColor = clGrayText
@@ -568,8 +567,10 @@ object frmMain: TfrmMain
             Gutter.Font.Style = []
             Gutter.ShowLineNumbers = True
             Highlighter = synHTMLSyn
+            Options = [eoAutoIndent, eoDragDropEditing, eoEnhanceEndKey, eoGroupUndo, eoScrollPastEol, eoShowScrollHint, eoSmartTabDelete, eoTabIndent, eoTabsToSpaces]
             RightEdge = 120
             SearchEngine = seSearch
+            TabWidth = 2
             WantTabs = True
             FontSmoothing = fsmNone
           end
@@ -608,6 +609,12 @@ object frmMain: TfrmMain
                 Action = actHTMLFind
                 DropdownMenu = pmSearch
                 Style = tbsDropDown
+              end
+              object btnCtrlSpace: TToolButton
+                Left = 79
+                Top = 0
+                Action = actCtrlSpace
+                Visible = False
               end
             end
           end
@@ -2272,7 +2279,7 @@ object frmMain: TfrmMain
     object miAddChild: TMenuItem
       Action = actAddChild
     end
-    object NewemptyHTML1: TMenuItem
+    object miNewEmptyHTML: TMenuItem
       Action = actNewEmpty
     end
     object N3: TMenuItem
@@ -2454,6 +2461,10 @@ object frmMain: TfrmMain
       Hint = 'Replace'
       ShortCut = 24658
       OnExecute = actHTMLReplaceExecute
+    end
+    object actCtrlSpace: TAction
+      ShortCut = 16416
+      OnExecute = actCtrlSpaceExecute
     end
   end
   object ilNormal: TImageList
@@ -5326,5 +5337,126 @@ object frmMain: TfrmMain
     TimerInterval = 500
     Left = 472
     Top = 264
+  end
+  object pmHTML: TPopupMenu
+    Left = 776
+    Top = 202
+    object miTags: TMenuItem
+      Caption = 'Tags'
+      object miTagP: TMenuItem
+        Caption = 'p'
+        ShortCut = 41040
+        OnClick = miTagClick
+      end
+      object miTagBlockquote: TMenuItem
+        Caption = 'blockquote'
+        ShortCut = 41026
+        OnClick = miTagClick
+      end
+      object miTagH1: TMenuItem
+        Caption = 'h1'
+        ShortCut = 41009
+        OnClick = miTagClick
+      end
+      object miTagH2: TMenuItem
+        Caption = 'h2'
+        ShortCut = 41010
+        OnClick = miTagClick
+      end
+      object miTagH3: TMenuItem
+        Caption = 'h3'
+        ShortCut = 41011
+        OnClick = miTagClick
+      end
+      object miTagH4: TMenuItem
+        Caption = 'h4'
+        ShortCut = 41012
+        OnClick = miTagClick
+      end
+      object miTagUL: TMenuItem
+        Caption = 'ul/li'
+        ShortCut = 41045
+        OnClick = miTagULClick
+      end
+    end
+    object miSymbol: TMenuItem
+      Caption = 'Symbols'
+      object miSymbolAmp: TMenuItem
+        Caption = 'amp'
+        OnClick = miSymbolClick
+      end
+      object miSymbolApos: TMenuItem
+        Caption = 'apos'
+        OnClick = miSymbolClick
+      end
+      object miSymbolCopy: TMenuItem
+        Caption = 'copy'
+        OnClick = miSymbolClick
+      end
+      object miSymbolLarr: TMenuItem
+        Caption = 'larr'
+      end
+      object miSymbolSpace: TMenuItem
+        Caption = 'nbsp'
+        OnClick = miSymbolClick
+      end
+      object miSymbolQuote: TMenuItem
+        Caption = 'quot'
+        ShortCut = 41041
+        OnClick = miSymbolClick
+      end
+      object miSymbolReg: TMenuItem
+        Caption = 'reg'
+        OnClick = miSymbolClick
+      end
+      object miSymbolRarr: TMenuItem
+        Caption = 'rarr'
+        ShortCut = 41042
+        OnClick = miSymbolClick
+      end
+    end
+    object miFormats: TMenuItem
+      Caption = 'Formats'
+      object miBold: TMenuItem
+        Tag = 98
+        Caption = 'bold'
+        ShortCut = 16450
+        OnClick = miFormatClick
+      end
+      object miItalic: TMenuItem
+        Tag = 105
+        Caption = 'italic'
+        ShortCut = 16457
+        OnClick = miFormatClick
+      end
+      object miUnderline: TMenuItem
+        Tag = 117
+        Caption = 'underline'
+        ShortCut = 16469
+        OnClick = miFormatClick
+      end
+    end
+    object N5: TMenuItem
+      Caption = '-'
+    end
+    object miAddImage: TMenuItem
+      Caption = 'Add image'
+      ShortCut = 41033
+      OnClick = miAddImageClick
+    end
+    object miAddURL: TMenuItem
+      Caption = 'Add anchor (link to file)'
+      ShortCut = 41025
+      OnClick = miAddURLClick
+    end
+  end
+  object dlgOpenPicture: TOpenPictureDialog
+    Filter = 
+      'All (*.png;*.gif;*.jpg;*.jpeg;*.bmp)|*.png;*.gif;*.jpg;*.jpeg;*.' +
+      'bmp|Portable network graphics (*.png)|*.png|GIF Image (*.gif)|*.' +
+      'gif|JPEG Image File (*.jpg)|*.jpg|JPEG Image File (*.jpeg)|*.jpe' +
+      'g|Bitmaps (*.bmp)|*.bmp'
+    Left = 552
+    Top = 266
   end
 end

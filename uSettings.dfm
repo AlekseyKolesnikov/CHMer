@@ -3,7 +3,7 @@ object frmSettings: TfrmSettings
   Top = 0
   BorderStyle = bsDialog
   Caption = 'Settings'
-  ClientHeight = 123
+  ClientHeight = 145
   ClientWidth = 426
   Color = clBtnFace
   DoubleBuffered = True
@@ -16,7 +16,7 @@ object frmSettings: TfrmSettings
   Position = poScreenCenter
   DesignSize = (
     426
-    123)
+    145)
   PixelsPerInch = 96
   TextHeight = 13
   object Label1: TLabel
@@ -32,6 +32,13 @@ object frmSettings: TfrmSettings
     Width = 53
     Height = 13
     Caption = 'Editor path'
+  end
+  object Label3: TLabel
+    Left = 8
+    Top = 88
+    Width = 39
+    Height = 13
+    Caption = 'Tab size'
   end
   object edHHC: TFilenameEdit
     Left = 82
@@ -54,25 +61,27 @@ object frmSettings: TfrmSettings
   end
   object btnOK: TButton
     Left = 262
-    Top = 90
+    Top = 112
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
     Caption = 'OK'
     Default = True
     ModalResult = 1
-    TabOrder = 4
+    TabOrder = 5
+    ExplicitTop = 90
   end
   object btnCancel: TButton
     Left = 343
-    Top = 90
+    Top = 112
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
     Cancel = True
     Caption = 'Cancel'
     ModalResult = 2
-    TabOrder = 5
+    TabOrder = 6
+    ExplicitTop = 90
   end
   object chbAddIfEmpty: TCheckBox
     Left = 253
@@ -92,5 +101,15 @@ object frmSettings: TfrmSettings
     NumGlyphs = 1
     TabOrder = 1
     Text = ''
+  end
+  object edTabSize: TSpinEdit
+    Left = 82
+    Top = 85
+    Width = 63
+    Height = 22
+    MaxValue = 10
+    MinValue = 1
+    TabOrder = 4
+    Value = 2
   end
 end

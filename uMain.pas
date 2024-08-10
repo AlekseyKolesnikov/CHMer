@@ -8,8 +8,8 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, ExtCtrls, ToolWin, ComCtrls, Grids, ImgList, OleCtrls,
-  SHDocVw, SynEditHighlighter, SynHighlighterHtml, SynEdit, StdCtrls, System.ImageList, Vcl.Menus, System.Actions, Vcl.ActnList, RxPlacemnt,
-  uHelpProject, SynEditMiscClasses, SynEditSearch, SynCompletionProposal;
+  SHDocVw, StdCtrls, System.ImageList, Vcl.Menus, System.Actions, Vcl.ActnList, Vcl.ExtDlgs, RxPlacemnt, SynEdit, SynEditHighlighter,
+  SynHighlighterHtml, SynEditMiscClasses, SynEditSearch, SynCompletionProposal, uHelpProject;
 
 type
   TAddFile = function (const FileName: String): TTreeNode of object;
@@ -124,7 +124,35 @@ type
     miHTMLFind: TMenuItem;
     miHTMLReplace: TMenuItem;
     scTypes: TSynCompletionProposal;
-    NewemptyHTML1: TMenuItem;
+    miNewEmptyHTML: TMenuItem;
+    pmHTML: TPopupMenu;
+    miAddImage: TMenuItem;
+    miAddURL: TMenuItem;
+    dlgOpenPicture: TOpenPictureDialog;
+    miTags: TMenuItem;
+    miTagP: TMenuItem;
+    miTagBlockquote: TMenuItem;
+    miTagH1: TMenuItem;
+    miTagH2: TMenuItem;
+    miTagH3: TMenuItem;
+    miTagH4: TMenuItem;
+    miTagUL: TMenuItem;
+    miSymbol: TMenuItem;
+    miSymbolSpace: TMenuItem;
+    miSymbolQuote: TMenuItem;
+    miSymbolApos: TMenuItem;
+    miSymbolReg: TMenuItem;
+    miSymbolCopy: TMenuItem;
+    N5: TMenuItem;
+    miFormats: TMenuItem;
+    miBold: TMenuItem;
+    miItalic: TMenuItem;
+    miUnderline: TMenuItem;
+    miSymbolRarr: TMenuItem;
+    miSymbolLarr: TMenuItem;
+    actCtrlSpace: TAction;
+    btnCtrlSpace: TToolButton;
+    miSymbolAmp: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
     procedure actProjectLoadExecute(Sender: TObject);
@@ -169,6 +197,13 @@ type
     procedure actHTMLReplaceExecute(Sender: TObject);
     procedure dlgFindFind(Sender: TObject);
     procedure dlgReplaceReplace(Sender: TObject);
+    procedure miAddImageClick(Sender: TObject);
+    procedure miAddURLClick(Sender: TObject);
+    procedure miTagClick(Sender: TObject);
+    procedure miTagULClick(Sender: TObject);
+    procedure miSymbolClick(Sender: TObject);
+    procedure miFormatClick(Sender: TObject);
+    procedure actCtrlSpaceExecute(Sender: TObject);
   private
     { Private declarations }
     Project: TProject;
@@ -180,6 +215,7 @@ type
     function AddBefore(const FileName: string): TTreeNode;
     function AddChild(const FileName: string): TTreeNode;
     procedure AddFiles(AddFile: TAddFile);
+    procedure AddHTMLTag(FileName: string; WithText: Boolean; TagLeft, TagMiddle, TagRight: String);
     function AddObject(const FileName: string): TObjectData;
     function CloseProject: Boolean;
     function GetAddContents: Boolean;
@@ -214,7 +250,7 @@ implementation
 {$R *.dfm}
 
 uses
-  System.UITypes, System.RegularExpressions, StrUtils, Registry, ShellAPI, SynEditTypes, HTMLTools, SystemUtils,
+  System.UITypes, System.RegularExpressions, StrUtils, Math, Registry, ShellAPI, SynEditTypes, SynEditTextBuffer, HTMLTools, SystemUtils,
   uSelectImage, uAddProperty, uEditValue, uEditFont, uSettings, uAddNewEmpty;
 
 const
@@ -222,13 +258,31 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.14';
+  sVersion = ' 1.0.15';
+
+function Spaces(count: Integer): String;
+var
+  S: AnsiString;
+begin
+  SetLength(S, Count);
+  FillChar(S[1], count, 32);
+  Result := string(S);
+end;
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
 begin
   memInfo.Lines.Clear;
   ValidateNotUsedHTMLs;
   ValidateSrcHref;
+end;
+
+procedure TfrmMain.actCtrlSpaceExecute(Sender: TObject);
+var
+  aPoint: TPoint;
+begin
+  aPoint := seHTML.RowColumnToPixels(seHTML.DisplayXY);
+  aPoint := seHTML.ClientToScreen(aPoint);
+  pmHTML.Popup(aPoint.X, aPoint.Y);
 end;
 
 procedure TfrmMain.actEditHTMLExecute(Sender: TObject);
@@ -495,9 +549,10 @@ procedure TfrmMain.actProjectSaveUpdate(Sender: TObject);
 var
   CHMData: TCHMData;
   aFileAge: TDateTime;
-  ProjectTreeFocused: Boolean;
+  ProjectTreeFocused, EditorFocused: Boolean;
 begin
   ProjectTreeFocused := tvProjectTree.Focused;
+  EditorFocused := seHTML.Focused;
 
   actHTMLSave.Enabled := seHTML.Modified;
   actProjectSave.Enabled := Assigned(Project) and Project.Modified;
@@ -524,6 +579,21 @@ begin
 
   actHTMLFind.Enabled := pcMainPages.ActivePage = tsHTML;
   actHTMLReplace.Enabled := actHTMLFind.Enabled;
+
+  miAddImage.Enabled := EditorFocused;
+  miAddURL.Enabled := EditorFocused;
+  miTagP.Enabled := EditorFocused;
+  miTagBlockquote.Enabled := EditorFocused;
+  miTagH1.Enabled := EditorFocused;
+  miTagH2.Enabled := EditorFocused;
+  miTagH3.Enabled := EditorFocused;
+  miTagH4.Enabled := EditorFocused;
+  miTagUL.Enabled := EditorFocused;
+  miSymbolQuote.Enabled := EditorFocused;
+  miSymbolRarr.Enabled := EditorFocused;
+  miBold.Enabled := EditorFocused;
+  miItalic.Enabled := EditorFocused;
+  miUnderline.Enabled := EditorFocused;
 
   // Monitor file changes in external application
 
@@ -657,8 +727,38 @@ begin
       Project.Modified := True;
     end;
   finally
-    dlgOpenHTML.Options := dlgOpenHTML.Options + [ofAllowMultiSelect];
+    dlgOpenHTML.Options := dlgOpenHTML.Options - [ofAllowMultiSelect];
   end;
+end;
+
+procedure TfrmMain.AddHTMLTag(FileName: string; WithText: Boolean; TagLeft, TagMiddle, TagRight: String);
+var
+  aStart, anEnd: Integer;
+  txt: String;
+begin
+  aStart := Min(seHTML.SelStart, seHTML.SelEnd);
+  anEnd := Max(seHTML.SelStart, seHTML.SelEnd);
+  txt := Copy(seHTML.Text, aStart + 1, anEnd - aStart);
+
+  if txt <> '' then
+    seHTML.UndoList.AddChange(crDelete, seHTML.CharIndexToRowCol(aStart), seHTML.CharIndexToRowCol(anEnd), txt,
+      seHTML.ActiveSelectionMode);
+
+  if FileName <> '' then
+  begin
+    FileName := StringReplace(FileName, Project.PrjDir, '', [rfIgnoreCase]);
+    if FileName[1] = '\' then
+      Delete(FileName, 1, 1);
+  end;
+
+  if not WithText then
+    txt := '';
+
+  seHTML.InsertBlock(seHTML.CharIndexToRowCol(aStart), seHTML.CharIndexToRowCol(anEnd),
+    PWideChar(TagLeft + FileName + TagMiddle + txt + TagRight), True);
+
+  if WithText and (txt = '') then
+    seHTML.CaretX := seHTML.CaretX - Length(TagRight);
 end;
 
 function TfrmMain.AddObject(const FileName: string): TObjectData;
@@ -695,11 +795,12 @@ begin
   frmSettings.edEditor.FileName := GetEditor;
   frmSettings.chbAddContents.Checked := GetAddContents;
   frmSettings.chbAddIfEmpty.Checked := GetAddIfEmpty;
+  frmSettings.edTabSize.Value := seHTML.TabWidth;
 
   if frmSettings.ShowModal = mrOk then
   begin
+    seHTML.TabWidth := frmSettings.edTabSize.Value;
     reg := TRegIniFile.Create;
-
     reg.RootKey := HKEY_CURRENT_USER;
 
     if reg.OpenKey('Software\CHMer', True) then
@@ -708,6 +809,7 @@ begin
       reg.WriteString('', 'Editor', frmSettings.edEditor.FileName);
       reg.WriteBool('', 'AddContents', frmSettings.chbAddContents.Checked);
       reg.WriteBool('', 'AddIfEmpty', frmSettings.chbAddIfEmpty.Checked);
+      reg.WriteInteger('', 'TabSize', frmSettings.edTabSize.Value);
     end;
 
     reg.Free;
@@ -793,6 +895,8 @@ begin
 end;
 
 procedure TfrmMain.FormCreate(Sender: TObject);
+var
+  reg: TRegIniFile;
 begin
   Self.Caption := sTitle + sVersion;
   Application.Title := sTitle;
@@ -807,6 +911,14 @@ begin
 
   CurFileAge := 0;
   DoNotNavigate := False;
+
+  reg := TRegIniFile.Create;
+  reg.RootKey := HKEY_CURRENT_USER;
+
+  if reg.OpenKeyReadOnly('Software\CHMer') then
+    seHTML.TabWidth := reg.ReadInteger('', 'TabSize', seHTML.TabWidth);
+
+  reg.Free;
 end;
 
 procedure TfrmMain.FormResize(Sender: TObject);
@@ -1038,6 +1150,24 @@ begin
   AddFiles(AddChild);
 end;
 
+procedure TfrmMain.miAddImageClick(Sender: TObject);
+begin
+  if not dlgOpenPicture.Execute then
+    Exit;
+
+  AddHTMLTag(dlgOpenPicture.FileName, False, '<img src="', '', '" align="absMiddle" />');
+end;
+
+procedure TfrmMain.miAddURLClick(Sender: TObject);
+begin
+  dlgOpenHTML.Options := dlgOpenHTML.Options - [ofAllowMultiSelect];
+
+  if not dlgOpenHTML.Execute then
+    Exit;
+
+  AddHTMLTag(dlgOpenHTML.FileName, True, '<a href="', '">', '</a>');
+end;
+
 procedure TfrmMain.miCollapseAllClick(Sender: TObject);
 begin
   tvProjectTree.Items[0].Collapse(True);
@@ -1061,6 +1191,14 @@ end;
 procedure TfrmMain.miExpandAllClick(Sender: TObject);
 begin
   tvProjectTree.Items[0].Expand(True);
+end;
+
+procedure TfrmMain.miFormatClick(Sender: TObject);
+var
+  tag: string;
+begin
+  tag := Char(TMenuItem(Sender).Tag);
+  AddHTMLTag('', True, '<' + tag + '>', '', '</' + tag + '>');
 end;
 
 procedure TfrmMain.miLevelDownClick(Sender: TObject);
@@ -1206,6 +1344,40 @@ begin
     InitProjectData(ProjectData);
     Project.Modified := True;
   end;
+end;
+
+procedure TfrmMain.miSymbolClick(Sender: TObject);
+begin
+  AddHTMLTag('', False, '&' + StringReplace(TMenuItem(Sender).Caption, '&', '', []) + ';', '', '');
+end;
+
+procedure TfrmMain.miTagClick(Sender: TObject);
+var
+  tag: string;
+begin
+  tag := StringReplace(TMenuItem(Sender).Caption, '&', '', []);
+  AddHTMLTag('', True, '<' + tag + '>', '', '</' + tag + '>');
+end;
+
+procedure TfrmMain.miTagULClick(Sender: TObject);
+var
+  aStart, anEnd: Integer;
+  XY: TBufferCoord;
+  txt: String;
+begin
+  aStart := Min(seHTML.SelStart, seHTML.SelEnd);
+  anEnd := Max(seHTML.SelStart, seHTML.SelEnd);
+  txt := Copy(seHTML.Text, aStart + 1, anEnd - aStart);
+
+  if txt <> '' then
+    seHTML.UndoList.AddChange(crDelete, seHTML.CharIndexToRowCol(aStart), seHTML.CharIndexToRowCol(anEnd), txt,
+      seHTML.ActiveSelectionMode);
+
+  XY := seHTML.CaretXY;
+  seHTML.InsertLine(XY, XY, PWideChar(#13#10), True);
+  seHTML.InsertLine(XY, XY, PWideChar(#13#10), True);
+  seHTML.SetCaretAndSelection(XY, XY, XY);
+  seHTML.InsertBlock(XY, XY, PWideChar('<ul>'#13#10'  <li></li>'#13#10'</ul>'), True);
 end;
 
 procedure TfrmMain.pmProjectTreePopup(Sender: TObject);

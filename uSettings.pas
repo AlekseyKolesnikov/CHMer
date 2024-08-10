@@ -4,7 +4,7 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Mask, RxToolEdit, Vcl.StdCtrls;
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Mask, RxToolEdit, Vcl.StdCtrls, Vcl.Samples.Spin;
 
 type
   TfrmSettings = class(TForm)
@@ -16,6 +16,8 @@ type
     chbAddIfEmpty: TCheckBox;
     edEditor: TFilenameEdit;
     Label2: TLabel;
+    edTabSize: TSpinEdit;
+    Label3: TLabel;
   private
     { Private declarations }
   public
