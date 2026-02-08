@@ -28,7 +28,7 @@ implementation
 
 procedure TfrmAddProperty.edNameChange(Sender: TObject);
 begin
-  btnOK.Enabled := Trim(edName.Text) <> '';
+  btnOK.Enabled := (Trim(edName.Text) <> '') and (Trim(edValue.Text) <> '');
 end;
 
 end.

@@ -8,11 +8,11 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, Dialogs, ExtCtrls, ToolWin, ComCtrls, Grids, ImgList, OleCtrls,
-  SHDocVw, StdCtrls, System.ImageList, Vcl.Menus, System.Actions, Vcl.ActnList, Vcl.ExtDlgs, RxPlacemnt, SynEdit, SynEditHighlighter,
-  SynHighlighterHtml, SynEditMiscClasses, SynEditSearch, SynCompletionProposal, uHelpProject;
+  SHDocVw, StdCtrls, System.ImageList, Vcl.Menus, System.Actions, Vcl.ActnList, Vcl.ExtDlgs, Vcl.Buttons, RxPlacemnt, SynEdit,
+  SynEditHighlighter, SynHighlighterHtml, SynEditMiscClasses, SynEditSearch, SynCompletionProposal, uHelpProject;
 
 type
-  TAddFile = function (const FileName: String): TTreeNode of object;
+  TAddFile = function (const Title, FileName: String): TTreeNode of object;
 
   TfrmMain = class(TForm)
     pnLeft: TPanel;
@@ -96,12 +96,12 @@ type
     btnProjectCreate: TToolButton;
     btnProjectLoad: TToolButton;
     btnProjectSave: TToolButton;
-    ToolButton4: TToolButton;
+    tbSeparator1: TToolButton;
     btnSettings: TToolButton;
-    ToolButton3: TToolButton;
+    tbSeparator2: TToolButton;
     btnUpdateHTML: TToolButton;
     btnCheckNotUsed: TToolButton;
-    ToolButton2: TToolButton;
+    tbSeparator3: TToolButton;
     btnProjectCompile: TToolButton;
     ilPopupDisabled: TImageList;
     memKeyWords: TMemo;
@@ -153,6 +153,11 @@ type
     actCtrlSpace: TAction;
     btnCtrlSpace: TToolButton;
     miSymbolAmp: TMenuItem;
+    pmSave: TPopupMenu;
+    miSaveAs: TMenuItem;
+    pnFlags: TPanel;
+    btnFlags: TSpeedButton;
+    btnDefault: TSpeedButton;
     procedure FormCreate(Sender: TObject);
     procedure tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
     procedure actProjectLoadExecute(Sender: TObject);
@@ -204,6 +209,8 @@ type
     procedure miSymbolClick(Sender: TObject);
     procedure miFormatClick(Sender: TObject);
     procedure actCtrlSpaceExecute(Sender: TObject);
+    procedure miSaveAsClick(Sender: TObject);
+    procedure splHorizontalLeftMoved(Sender: TObject);
   private
     { Private declarations }
     Project: TProject;
@@ -211,12 +218,12 @@ type
     CurFileAge: TDateTime;
     DoNotNavigate: Boolean;
 
-    function AddAfter(const FileName: string): TTreeNode;
-    function AddBefore(const FileName: string): TTreeNode;
-    function AddChild(const FileName: string): TTreeNode;
+    function AddAfter(const Title, FileName: string): TTreeNode;
+    function AddBefore(const Title, FileName: string): TTreeNode;
+    function AddChild(const Title, FileName: string): TTreeNode;
     procedure AddFiles(AddFile: TAddFile);
     procedure AddHTMLTag(FileName: string; WithText: Boolean; TagLeft, TagMiddle, TagRight: String);
-    function AddObject(const FileName: string): TObjectData;
+    function AddObject(const Title, FileName: string): TObjectData;
     function CloseProject: Boolean;
     function GetAddContents: Boolean;
     function GetAddIfEmpty: Boolean;
@@ -258,7 +265,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.0.15';
+  sVersion = ' 1.1.0';
 
 function Spaces(count: Integer): String;
 var
@@ -289,6 +296,9 @@ procedure TfrmMain.actEditHTMLExecute(Sender: TObject);
 var
   editor: string;
 begin
+  if SelectedObjectData.URL = '' then
+    Exit;
+
   editor := GetEditor;
 
   if editor = '' then
@@ -331,6 +341,9 @@ begin
       Continue;
 
     ObjectData := TObjectData(CHMData);
+
+    if ObjectData.URL = '' then
+      Continue;
 
     if cmbFindType.ItemIndex = 0 then
     begin
@@ -386,7 +399,7 @@ end;
 
 procedure TfrmMain.actHTMLSaveExecute(Sender: TObject);
 begin
-  if (not Assigned(Project)) or (not Assigned(SelectedObjectData)) then
+  if (not Assigned(Project)) or (not Assigned(SelectedObjectData)) or (SelectedObjectData.URL = '') then
     Exit;
 
   seHTML.Lines.SaveToFile(Project.PrjDir + SelectedObjectData.URL);
@@ -406,16 +419,14 @@ begin
   if InputNewEmpty(Title, FileName, Position, OpenEditor) then
   begin
     FileName := Trim(FileName);
-    if FileName = '' then
-    begin
-      ShowMessage('You should specify the file name.');
-      Exit;
-    end;
 
-    Ext := AnsiLowerCase(ExtractFileExt(FileName));
-    if (Ext <> '.html') and (Ext <> '.htm') then
-      Ext := '.html';
-    FileName := ChangeFileExt(FileName, Ext);
+    if FileName <> '' then
+    begin
+      Ext := AnsiLowerCase(ExtractFileExt(FileName));
+      if (Ext <> '.html') and (Ext <> '.htm') then
+        Ext := '.html';
+      FileName := ChangeFileExt(FileName, Ext);
+    end;
 
     slHTML := TStringList.Create;
 
@@ -430,7 +441,9 @@ begin
     slHTML.Add('  </body>');
     slHTML.Add('</html>');
 
+    if FileName <> '' then
     try
+      FileName := Project.PrjDir + FileName;
       slHTML.SaveToFile(Project.PrjDir + FileName, TEncoding.UTF8);
     except
       ShowMessage('Error saving file');
@@ -441,19 +454,20 @@ begin
     slHTML.Free;
 
     if (Position = 0) and actAddBefore.Enabled then
-      aNode := AddBefore(Project.PrjDir + FileName)
+      aNode := AddBefore(Title, FileName)
     else
     if (Position = 1) and actAddAfter.Enabled then
-      aNode := AddAfter(Project.PrjDir + FileName)
+      aNode := AddAfter(Title, FileName)
     else
-      aNode := AddChild(Project.PrjDir + FileName);
+      aNode := AddChild(Title, FileName);
 
     if OpenEditor and Assigned(aNode) then
     begin
       tvProjectTree.Selected := aNode;
-      Project.Modified := True;
       actEditHTMLExecute(Sender);
     end;
+
+    Project.Modified := True;
   end;
 end;
 
@@ -539,7 +553,6 @@ begin
   if tvProjectTree.Selected = tvProjectTree.Items[0] then
   begin
     ProjectData := TProjectData(tvProjectTree.Selected.Data);
-
     sgProperties.RowCount := ProjectData.GetPropsCount + 1;
     InitProjectData(ProjectData);
   end;
@@ -549,26 +562,31 @@ procedure TfrmMain.actProjectSaveUpdate(Sender: TObject);
 var
   CHMData: TCHMData;
   aFileAge: TDateTime;
-  ProjectTreeFocused, EditorFocused: Boolean;
+  ProjectTreeFocused, EditorFocused, ProjectOpened: Boolean;
 begin
   ProjectTreeFocused := tvProjectTree.Focused;
   EditorFocused := seHTML.Focused;
+  ProjectOpened := Assigned(Project);
 
   actHTMLSave.Enabled := seHTML.Modified;
-  actProjectSave.Enabled := Assigned(Project) and Project.Modified;
-  actProjectCompile.Enabled := Assigned(Project);
-  actUpdateHTML.Enabled := Assigned(Project);
-  actCheckNotUsed.Enabled := Assigned(Project) and (Project.ProjectFile <> '');
-
-  actEditHTML.Enabled := Assigned(Project) and Assigned(SelectedObjectData);
-
+  actProjectSave.Enabled := ProjectOpened;
+  actProjectCompile.Enabled := ProjectOpened;
+  actUpdateHTML.Enabled := ProjectOpened;
+  actCheckNotUsed.Enabled := ProjectOpened and (Project.ProjectFile <> '');
+  actEditHTML.Enabled := ProjectOpened and Assigned(SelectedObjectData);
   actAddBefore.Enabled := ProjectTreeFocused and actEditHTML.Enabled;
   actAddAfter.Enabled := actAddBefore.Enabled;
-
-  actAddChild.Enabled := ProjectTreeFocused and Assigned(Project);
+  actAddChild.Enabled := ProjectTreeFocused and ProjectOpened;
   actNewEmpty.Enabled := actAddChild.Enabled;
-
   actDelete.Enabled := actAddBefore.Enabled;
+
+  if ProjectOpened and Project.Modified then
+    actProjectSave.ImageIndex := 2
+  else
+    actProjectSave.ImageIndex := 9;
+
+  miSaveAs.Enabled := ProjectOpened;
+  //pnFlags.Visible := ProjectOpened;
 
   actMoveUp.Enabled := actAddBefore.Enabled and (tvProjectTree.Selected.GetPrev <> tvProjectTree.Items[0]) and (tvProjectTree.Selected.getPrevSibling <> nil);
   actMoveDown.Enabled := actAddBefore.Enabled and (tvProjectTree.Selected.getNextSibling <> nil);
@@ -597,7 +615,7 @@ begin
 
   // Monitor file changes in external application
 
-  if not Assigned(Project) then
+  if not ProjectOpened then
     Exit;
 
   if not Assigned(tvProjectTree.Selected) then
@@ -610,13 +628,16 @@ begin
 
   SelectedObjectData := TObjectData(CHMData);
 
-  FileAge(Project.PrjDir + SelectedObjectData.URL, aFileAge);
-  if aFileAge <> CurFileAge then
+  if SelectedObjectData.URL <> '' then
   begin
-    CurFileAge := aFileAge;
-    //memInfo.Lines.Add('Reloading ' + Project.PrjDir + SelectedObjectData.URL + '...');
-    wbBrowser.Navigate(Project.PrjDir + SelectedObjectData.URL, navNoHistory or navNoReadFromCache or navNoWriteToCache);
-    seHTML.Lines.LoadFromFile(Project.PrjDir + SelectedObjectData.URL);
+    FileAge(Project.PrjDir + SelectedObjectData.URL, aFileAge);
+
+    if aFileAge <> CurFileAge then
+    begin
+      CurFileAge := aFileAge;
+      wbBrowser.Navigate(Project.PrjDir + SelectedObjectData.URL, navNoHistory or navNoReadFromCache or navNoWriteToCache);
+      seHTML.Lines.LoadFromFile(Project.PrjDir + SelectedObjectData.URL);
+    end;
   end;
 end;
 
@@ -638,6 +659,10 @@ begin
     for i := 1 to tvProjectTree.Items.Count - 1 do
     begin
       ObjectData := TObjectData(tvProjectTree.Items[i].Data);
+
+      if ObjectData.URL = '' then
+        Continue;
+
       if FileExists(Project.PrjDir + ObjectData.URL) then
       begin
         slHTML.LoadFromFile(Project.PrjDir + ObjectData.URL);
@@ -658,11 +683,11 @@ begin
   end;
 end;
 
-function TfrmMain.AddAfter(const FileName: string): TTreeNode;
+function TfrmMain.AddAfter(const Title, FileName: string): TTreeNode;
 var
   DataObject: TObjectData;
 begin
-  DataObject := AddObject(FileName);
+  DataObject := AddObject(Title, FileName);
 
   Result := tvProjectTree.Selected.getNextSibling;
 
@@ -676,11 +701,11 @@ begin
   Result.SelectedIndex := 11;
 end;
 
-function TfrmMain.AddBefore(const FileName: string): TTreeNode;
+function TfrmMain.AddBefore(const Title, FileName: string): TTreeNode;
 var
   DataObject: TObjectData;
 begin
-  DataObject := AddObject(FileName);
+  DataObject := AddObject(Title, FileName);
 
   Result := tvProjectTree.Items.Insert(tvProjectTree.Selected, DataObject.Name);
 
@@ -689,11 +714,11 @@ begin
   Result.SelectedIndex := 11;
 end;
 
-function TfrmMain.AddChild(const FileName: string): TTreeNode;
+function TfrmMain.AddChild(const Title, FileName: string): TTreeNode;
 var
   DataObject: TObjectData;
 begin
-  DataObject := AddObject(FileName);
+  DataObject := AddObject(Title, FileName);
 
   if (not tvProjectTree.Selected.HasChildren) and (tvProjectTree.Selected <> tvProjectTree.Items[0]) then
   begin
@@ -721,7 +746,7 @@ begin
       aNode := tvProjectTree.Selected;
 
       for i := 0 to dlgOpenHTML.Files.Count - 1 do
-        aNode := AddFile(dlgOpenHTML.Files[i]);
+        aNode := AddFile('', dlgOpenHTML.Files[i]);
 
       tvProjectTree.Selected := aNode;
       Project.Modified := True;
@@ -761,28 +786,30 @@ begin
     seHTML.CaretX := seHTML.CaretX - Length(TagRight);
 end;
 
-function TfrmMain.AddObject(const FileName: string): TObjectData;
+function TfrmMain.AddObject(const Title, FileName: string): TObjectData;
 var
   slHTML: TStringList;
   aName: string;
 begin
-  slHTML := TStringList.Create;
-
   Result := TObjectData.Create;
   Result.URL := ExtractFileName(FileName);
   Result.ImageIndex := '11';
+  Result.Name := Title;
 
-  slHTML.LoadFromFile(FileName);
+  if FileName <> '' then
+  begin
+    slHTML := TStringList.Create;
+    slHTML.LoadFromFile(FileName);
 
-  aName := GetTagText(slHTML.Text, 'title');
-  if aName = '' then
-    aName := GetTagText(slHTML.Text, 'h1');
-  if aName = '' then
-    aName := GetTagText(slHTML.Text, 'h2');
+    aName := GetTagText(slHTML.Text, 'title');
+    if aName = '' then
+      aName := GetTagText(slHTML.Text, 'h1');
+    if aName = '' then
+      aName := GetTagText(slHTML.Text, 'h2');
 
-  Result.Name := aName;
-
-  slHTML.Free;
+    Result.Name := aName;
+    slHTML.Free;
+  end;
 end;
 
 procedure TfrmMain.btnSettingsClick(Sender: TObject);
@@ -902,9 +929,9 @@ begin
   Application.Title := sTitle;
   fsLayout.UseRegistry := True;
   pcMainPages.ActivePageIndex := 0;
+  tsHTML.TabVisible := False;
 
   Project := nil;
-
   SelectedObjectData := nil;
 
   sgProperties.Cells[0, 0] := '[properties]';
@@ -924,6 +951,7 @@ end;
 procedure TfrmMain.FormResize(Sender: TObject);
 begin
   splVerticalRightMoved(Sender);
+  splHorizontalLeftMoved(Sender);
 end;
 
 procedure TfrmMain.FormShow(Sender: TObject);
@@ -1325,25 +1353,49 @@ var
   value, aName: string;
   ProjectData: TProjectData;
   slList: TStringList;
+  i: Integer;
 begin
   if not Assigned(Project) then
     Exit;
 
   aName := sgProperties.Cells[0, sgProperties.Row];
 
-  if MessageDlg('Remove "' + aName + '"?', mtConfirmation, mbYesNo, 0) = mrYes then
+  if (Sender = nil) or (MessageDlg('Remove "' + aName + '"?', mtConfirmation, mbYesNo, 0) = mrYes) then
   begin
     ProjectData := TProjectData(tvProjectTree.Selected.Data);
-
     value := sgProperties.Cells[1, sgProperties.Row];
-
     slList := GetProjectDataList(aName);
 
-    slList.Delete(slList.IndexOfName(aName));
+    i := slList.IndexOf(aName + '=' + value);
+    if i < 0 then
+      i := slList.IndexOfName(aName);
+
+    if i < 0 then
+    begin
+      ShowMessage('"' + aName + '=' + value + '" not found!');
+      Exit;
+    end;
+
+    slList.Delete(i);
     sgProperties.RowCount := ProjectData.GetPropsCount + 1;
     InitProjectData(ProjectData);
     Project.Modified := True;
   end;
+end;
+
+procedure TfrmMain.miSaveAsClick(Sender: TObject);
+begin
+  if Project.ProjectFile <> '' then
+  begin
+    if not dlgSaveProject.Execute then
+      Exit;
+
+    Project.ProjectFile := dlgSaveProject.FileName;
+    Self.Caption := sTitle + sVersion + ': ' + ExtractFileName(Project.ProjectFile);
+    Application.Title := sTitle + ': ' + ExtractFileName(Project.ProjectFile);
+  end;
+
+  actProjectSave.Execute;
 end;
 
 procedure TfrmMain.miSymbolClick(Sender: TObject);
@@ -1501,11 +1553,13 @@ var
   value: string;
   ImageIndex: Integer;
 begin
-  value := sgProperties.Cells[1, sgProperties.Row];
+  ImageIndex := -1;
+  value := Trim(sgProperties.Cells[1, sgProperties.Row]);
+
+  if value <> '' then
   try
     ImageIndex := StrToInt(value);
   except
-    ImageIndex := -1;
   end;
 
   ImageIndex := GetImageIndex(ImageIndex);
@@ -1517,6 +1571,7 @@ begin
     SelectedObjectData.ImageIndex := value;
     tvProjectTree.Selected.ImageIndex := ImageIndex;
     tvProjectTree.Selected.SelectedIndex := ImageIndex;
+    tvProjectTree.Invalidate;
     Project.Modified := True;
   end;
 end;
@@ -1605,6 +1660,12 @@ begin
 
   if InputQuery(sgProperties.Cells[0, sgProperties.Row], 'Value', value) then
   begin
+    if value = '' then
+    begin
+      miPropertiesDeleteClick(nil);
+      Exit;
+    end;
+
     sgProperties.Cells[1, sgProperties.Row] := value;
 
     aName := sgProperties.Cells[0, sgProperties.Row];
@@ -1657,6 +1718,10 @@ begin
       Continue;
 
     ObjectData := TObjectData(CHMData);
+
+    if ObjectData.URL = '' then
+      Continue;
+
     if Pos(AnsiLowerCase(ObjectData.URL), AnsiLowerCase(URL)) > 0 then
     begin
       if tvProjectTree.Selected <> tvProjectTree.Items[iItem] then
@@ -1675,6 +1740,7 @@ begin
     Exit;
 
   propertyName := AnsiLowerCase(sgProperties.Cells[0, sgProperties.Row]);
+
   if Assigned(SelectedObjectData) then
   begin
     if propertyName = 'local' then
@@ -1707,6 +1773,11 @@ begin
   end;
 end;
 
+procedure TfrmMain.splHorizontalLeftMoved(Sender: TObject);
+begin
+  pnLeftToolbar.Width := tbLeftToolbar.Width + MulDiv(5, Screen.PixelsPerInch, 96);
+end;
+
 procedure TfrmMain.splVerticalRightMoved(Sender: TObject);
 begin
   lbKeywords.Left := splVerticalRight.Left + 5;
@@ -1726,7 +1797,7 @@ begin
   if not Assigned(tvProjectTree.Selected) then
     Exit;
 
-  if actHTMLSave.Enabled and Assigned(SelectedObjectData) then
+  if actHTMLSave.Enabled and Assigned(SelectedObjectData) and (SelectedObjectData.URL <> '') then
   begin
     if MessageDlg('Save "' + SelectedObjectData.URL + '"?', mtConfirmation, mbYesNo, 0) = mrYes then
       actHTMLSave.Execute;
@@ -1742,11 +1813,12 @@ begin
   else
     SelectedObjectData := TObjectData(CHMData);
 
+  tsHTML.TabVisible := Assigned(SelectedObjectData) and (SelectedObjectData.URL <> '');
+
   sgProperties.RowCount := CHMData.GetPropsCount + 1;
-
   sgProperties.Cells[1, 0] := '[' + tvProjectTree.Selected.Text + ']';
-
   sgProperties.FixedRows := 1;
+
   if not DoNotNavigate then
     wbBrowser.Navigate('about:blank');
 
@@ -1772,11 +1844,15 @@ begin
     sgProperties.Cells[0, 3] := 'ImageIndex';
     sgProperties.Cells[1, 3] := SelectedObjectData.ImageIndex;
 
-    DoNotNavigate := True;
-    wbBrowser.Navigate(Project.PrjDir + SelectedObjectData.URL, navNoHistory or navNoReadFromCache or navNoWriteToCache);
+    if SelectedObjectData.URL <> '' then
+    try
+      DoNotNavigate := True;
+      wbBrowser.Navigate(Project.PrjDir + SelectedObjectData.URL, navNoHistory or navNoReadFromCache or navNoWriteToCache);
 
-    seHTML.Lines.LoadFromFile(Project.PrjDir + SelectedObjectData.URL);
-    FileAge(Project.PrjDir + SelectedObjectData.URL, CurFileAge);
+      seHTML.Lines.LoadFromFile(Project.PrjDir + SelectedObjectData.URL);
+      FileAge(Project.PrjDir + SelectedObjectData.URL, CurFileAge);
+    except
+    end;
 
     memKeyWords.OnChange := nil;
     memKeyWords.Lines.Text := SelectedObjectData.slKeyWords.Text;
@@ -1806,46 +1882,46 @@ begin
   begin
     ObjectData := TObjectData(tvProjectTree.Items[i].Data);
 
-    if FileExists(Project.PrjDir + ObjectData.URL) then
+    if (ObjectData.URL = '') or not FileExists(Project.PrjDir + ObjectData.URL) then
+      Continue;
+
+    slHTML.LoadFromFile(Project.PrjDir + ObjectData.URL);
+
+    for j := 0 to slHTML.Count - 1 do
+      slHTML[j] := AnsiLowerCase(Trim(slHTML[j]));
+
+    S := StringReplace(slHTML.Text, #13#10, ' ', [rfReplaceAll]);
+    S := StringReplace(S, #13, ' ', [rfReplaceAll]);
+    S := StringReplace(S, #10, ' ', [rfReplaceAll]);
+    S := StringReplace(S, '''', '"', [rfReplaceAll]);
+
+    while Pos('  ', S) > 0 do
+      S := StringReplace(S, '  ', ' ', [rfReplaceAll]);
+
+    S := StringReplace(S, ' src =', ' src=', [rfReplaceAll]);
+    S := StringReplace(S, ' href =', ' href=', [rfReplaceAll]);
+    S := StringReplace(S, '= "', '="', [rfReplaceAll]);
+
+    matches := rxRef.Matches(S);
+
+    for j := 0 to matches.Count - 1 do
     begin
-      slHTML.LoadFromFile(Project.PrjDir + ObjectData.URL);
+      sRef := matches[j].Value;
+      k := Pos('"', sRef);
+      Delete(sRef, 1, k);
+      SetLength(sRef, Length(sRef) - 1);
 
-      for j := 0 to slHTML.Count - 1 do
-        slHTML[j] := AnsiLowerCase(Trim(slHTML[j]));
+      if (Pos('://', sRef) > 0) or (Pos('mailto:', sRef) > 0) then
+        Continue;
 
-      S := StringReplace(slHTML.Text, #13#10, ' ', [rfReplaceAll]);
-      S := StringReplace(S, #13, ' ', [rfReplaceAll]);
-      S := StringReplace(S, #10, ' ', [rfReplaceAll]);
-      S := StringReplace(S, '''', '"', [rfReplaceAll]);
+      sRef := StringReplace(sRef, '/', '\', [rfReplaceAll]);
 
-      while Pos('  ', S) > 0 do
-        S := StringReplace(S, '  ', ' ', [rfReplaceAll]);
+      k := Pos('#', sRef);
+      if k > 0 then
+        SetLength(sRef, k - 1);
 
-      S := StringReplace(S, ' src =', ' src=', [rfReplaceAll]);
-      S := StringReplace(S, ' href =', ' href=', [rfReplaceAll]);
-      S := StringReplace(S, '= "', '="', [rfReplaceAll]);
-
-      matches := rxRef.Matches(S);
-
-      for j := 0 to matches.Count - 1 do
-      begin
-        sRef := matches[j].Value;
-        k := Pos('"', sRef);
-        Delete(sRef, 1, k);
-        SetLength(sRef, Length(sRef) - 1);
-
-        if (Pos('://', sRef) > 0) or (Pos('mailto:', sRef) > 0) then
-          Continue;
-
-        sRef := StringReplace(sRef, '/', '\', [rfReplaceAll]);
-
-        k := Pos('#', sRef);
-        if k > 0 then
-          SetLength(sRef, k - 1);
-
-        if not FileExists(Project.PrjDir + sRef) then
-          memInfo.Lines.Add(ObjectData.URL + ': missed file ' + sRef);
-      end;
+      if not FileExists(Project.PrjDir + sRef) then
+        memInfo.Lines.Add(ObjectData.URL + ': missed file ' + sRef);
     end;
   end;
 
@@ -1868,9 +1944,11 @@ begin
   for i := 1 to tvProjectTree.Items.Count - 1 do
   begin
     ObjectData := TObjectData(tvProjectTree.Items[i].Data);
+
     if ObjectData.URL <> '' then
     begin
       j := slFiles.IndexOf(Trim(ObjectData.URL));
+
       if j < 0 then
       begin
         if slFilesBackup.IndexOf(Trim(ObjectData.URL)) > -1 then

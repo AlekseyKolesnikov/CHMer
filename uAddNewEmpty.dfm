@@ -13,6 +13,7 @@ object frmAddNewEmpty: TfrmAddNewEmpty
   Font.Style = []
   OldCreateOrder = False
   Position = poScreenCenter
+  ShowHint = True
   OnCreate = FormCreate
   DesignSize = (
     294
@@ -31,6 +32,7 @@ object frmAddNewEmpty: TfrmAddNewEmpty
     Top = 38
     Width = 45
     Height = 13
+    Hint = 'If not specified, a section is created'
     Caption = 'File name'
   end
   object btnOK: TButton
@@ -68,6 +70,7 @@ object frmAddNewEmpty: TfrmAddNewEmpty
     Top = 35
     Width = 227
     Height = 21
+    Hint = 'If not specified, a section is created'
     Anchors = [akLeft, akTop, akRight]
     TabOrder = 1
   end

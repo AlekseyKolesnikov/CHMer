@@ -124,7 +124,7 @@ begin
   Data.slProject.AddPair('Compatibility', '1.1 or later');
   Data.slProject.AddPair('Compiled file', '');
   Data.slProject.AddPair('Contents file', '');
-  Data.slProject.AddPair('Default font', ',8,0');
+  Data.slProject.AddPair('Default font', 'Calibri,8,0');
   Data.slProject.AddPair('Default topic', '');
   Data.slProject.AddPair('Full-text search', 'Yes');
   Data.slProject.AddPair('Index file', '');
@@ -132,12 +132,12 @@ begin
   Data.slProject.AddPair('Title', '');
 
   Data.slContent.AddPair('FrameName', 'right');
-  Data.slContent.AddPair('Font', ',8,0');
+  Data.slContent.AddPair('Font', 'Calibri,8,0');
   Data.slContent.AddPair('ImageType', 'Book');
   Data.slContent.AddPair('Window Styles', '0x27');
   Data.slContent.AddPair('ExWindow Styles', '0x0');
 
-  Data.slKeyWords.AddPair('Font', ',8,0');
+  Data.slKeyWords.AddPair('Font', 'Calibri,8,0');
 end;
 
 destructor TProject.Destroy;
@@ -394,31 +394,39 @@ var
     begin
       ObjectData := TObjectData(aNode.Data);
 
-      slHHP.Add(ObjectData.URL);
+      if ObjectData.URL <> '' then
+        slHHP.Add(ObjectData.URL);
 
       slHHC.Add('<LI><OBJECT type="text/sitemap">');
       slHHC.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name, True) + '">');
-      slHHC.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL, True) + '">');
+
+      if ObjectData.URL <> '' then
+        slHHC.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL, True) + '">');
+
       if ObjectData.ImageIndex <> '' then
         slHHC.Add('  <param name="ImageNumber" value="' + ObjectData.ImageIndex + '">');
+
       slHHC.Add('</OBJECT>');
 
-      for i := 0 to ObjectData.slKeyWords.Count - 1 do
+      if ObjectData.URL <> '' then
       begin
-        slHHK.Add('<LI><OBJECT type="text/sitemap">');
-        slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.slKeyWords[i], True) + IfThen(ObjectData.slKeyWords[i] = ObjectData.Name, ' ') + '">');
-        slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name, True) + '">');
-        slHHK.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL, True) + '">');
-        slHHK.Add('</OBJECT>');
-      end;
+        for i := 0 to ObjectData.slKeyWords.Count - 1 do
+        begin
+          slHHK.Add('<LI><OBJECT type="text/sitemap">');
+          slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.slKeyWords[i], True) + IfThen(ObjectData.slKeyWords[i] = ObjectData.Name, ' ') + '">');
+          slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name, True) + '">');
+          slHHK.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL, True) + '">');
+          slHHK.Add('</OBJECT>');
+        end;
 
-      if AddContents and ((not AddIfEmpty) or (ObjectData.slKeyWords.Count = 0)) then
-      begin
-        slHHK.Add('<LI><OBJECT type="text/sitemap">');
-        slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name, True) + '">');
-        slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name, True) + '">');
-        slHHK.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL, True) + '">');
-        slHHK.Add('</OBJECT>');
+        if AddContents and ((not AddIfEmpty) or (ObjectData.slKeyWords.Count = 0)) then
+        begin
+          slHHK.Add('<LI><OBJECT type="text/sitemap">');
+          slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name, True) + '">');
+          slHHK.Add('  <param name="Name" value="' + ToHTML(ObjectData.Name, True) + '">');
+          slHHK.Add('  <param name="Local" value="' + ToHTML(ObjectData.URL, True) + '">');
+          slHHK.Add('</OBJECT>');
+        end;
       end;
     end;
 
