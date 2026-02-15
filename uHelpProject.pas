@@ -5,8 +5,35 @@ interface
 uses
   Classes, ComCtrls;
 
+  {Buttons
+  HHWIN_BUTTON_EXPAND  = $000002; // Expand/contract button (Hide/Show navigation tree)
+  HHWIN_BUTTON_BACK    = $000004; // Back button
+  HHWIN_BUTTON_FORWARD = $000008; // Forward button
+  HHWIN_BUTTON_STOP    = $000010; // Stop button
+  HHWIN_BUTTON_REFRESH = $000020; // Refresh button
+  HHWIN_BUTTON_HOME    = $000040; // Home button
+  HHWIN_BUTTON_SYNC    = $000800; // Sync button
+  HHWIN_BUTTON_OPTIONS = $001000; // Options button
+  HHWIN_BUTTON_PRINT   = $002000; // Print button
+  HHWIN_BUTTON_JUMP1   = $040000;
+  HHWIN_BUTTON_JUMP2   = $080000;
+  HHWIN_BUTTON_ZOOM    = $100000; // Font size
+
+  Navigation
+  HHWIN_PROP_TAB_AUTOHIDESHOW = $00000001; // Automatically hide/show navigation tree
+  HHWIN_PROP_TRI_PANE         = $00000020; // Show navigation tree
+  HHWIN_PROP_AUTO_SYNC        = $00000100; // Automatically sync between nav tree and main contents
+  HHWIN_PROP_TAB_SEARCH       = $00000400; // include search tab in navigation pane
+  HHWIN_PROP_TAB_FAVORITES    = $00001000; // include favorites tab in navigation pane
+  HHWIN_PROP_TAB_ADVSEARCH    = $00020000; // Advanced FTS UI (Advanced search).
+
+  Window
+  HHWIN_PROP_ONTOP            = $00000002; // Top-most window
+  HHWIN_PROP_MENU             = $00010000; // Menu
+  HHWIN_PROP_USER_POS         = $00040000; // After initial creation, user controls window size/position (save window position)}
+
 type
-  THHCType = (hhcProperties, hhcObject, hhcParameter, hhcWTF);
+  THHCType = (hhcProperties, hhcObject, hhcEndObject, hhcUL, hhcEndUL, hhcParameter, hhcUnknown);
 
   TProject = class
   private
@@ -16,8 +43,10 @@ type
     procedure LoadHHC(FileName: String);
     procedure LoadHHK(FileName: String);
     function LoadHHP(FileName: String): Boolean;
+    procedure InitProjectProperties;
   public
-    PrjDir, ProjectFile: String;
+    PrjDir, ProjectFile, Home, Jump1File, Jump1Name, Jump2File, Jump2Name: String;
+    Buttons, WindowNav, DefaultTab, LeftPaneWidth, Top, Left, Width, Height: Integer;
     Modified: Boolean;
 
     constructor Create(FileName: String; ProjectTree: TTreeNodes);
@@ -51,34 +80,59 @@ type
 implementation
 
 uses
-  SysUtils, StrUtils, XMLDoc, Dialogs, IniFiles, HyperParse, HTMLTools;
+  SysUtils, Winapi.Windows, StrUtils, XMLDoc, Dialogs, IniFiles, HyperParse, HTMLTools;
 
 function GetTypeHHC(info: THtmlInfo): THHCType;
 var
-  S: string;
+  S, TagName: string;
   i: Integer;
 begin
-  Result := hhcWTF;
+  Result := hhcUnknown;
+  TagName := AnsiUpperCase(info.TagName);
 
-  if (AnsiLowerCase(info.TagName) = 'param') then
-    Result := hhcParameter;
+  if (TagName = 'PARAM') then
+    Result := hhcParameter
+  else
+  if (TagName = '/OBJECT') then
+    Result := hhcEndObject
+  else
+  if (TagName = 'UL') then
+    Result := hhcUL
+  else
+  if (TagName = '/UL') then
+    Result := hhcEndUL
+  else
+  if (TagName = 'OBJECT') and (info.ParamCount > 0) then
+  begin
+    for i := 0 to info.ParamCount - 1 do
+      if AnsiLowerCase(info.Params[i].Name) = 'type' then
+      begin
+        S := AnsiLowerCase(info.Params[i].Value);
 
-  if (AnsiUpperCase(info.TagName) <> 'OBJECT') or (info.ParamCount < 1) then
+        if Pos('text/site properties', S) > 0 then
+          Result := hhcProperties
+        else
+        if Pos('text/sitemap', S) > 0 then
+          Result := hhcObject;
+
+        Break;
+      end;
+  end;
+end;
+
+function NumStr2Int(S: String): Integer;
+begin
+  Result := 0;
+
+  if S = '' then
     Exit;
 
-  for i := 0 to info.ParamCount - 1 do
-    if AnsiLowerCase(info.Params[i].Name) = 'type' then
-    begin
-      S := AnsiLowerCase(info.Params[i].Value);
+  S := StringReplace(AnsiLowerCase(S), '0x', '$', []);
 
-      if Pos('text/site properties', S) > 0 then
-        Result := hhcProperties
-      else
-      if Pos('text/sitemap', S) > 0 then
-        Result := hhcObject;
-
-      Break;
-    end;
+  try
+    Result := StrToInt(S);
+  except
+  end;
 end;
 
 
@@ -90,6 +144,7 @@ begin
 
   ProjectItems := ProjectTree;
   ProjectFile := FileName;
+  InitProjectProperties;
 
   if FileName = '' then
   begin
@@ -99,6 +154,7 @@ begin
   else
   begin
     PrjDir := ExtractFilePath(FileName);
+
     if LoadHHP(FileName) then
     begin
       LoadHHC(PrjDir + FileHHC);
@@ -114,30 +170,27 @@ var
   RootNode: TTreeNode;
   Data: TProjectData;
 begin
-  RootNode := ProjectItems.AddChild(nil, 'Project properties');
+  RootNode := ProjectItems.AddChild(nil, 'Project');
   RootNode.ImageIndex := 43;
   RootNode.SelectedIndex := 43;
 
   Data := TProjectData.Create;
   RootNode.Data := Data;
 
-  Data.slProject.AddPair('Compatibility', '1.1 or later');
   Data.slProject.AddPair('Compiled file', '');
   Data.slProject.AddPair('Contents file', '');
-  Data.slProject.AddPair('Default font', 'Calibri,8,0');
-  Data.slProject.AddPair('Default topic', '');
-  Data.slProject.AddPair('Full-text search', 'Yes');
   Data.slProject.AddPair('Index file', '');
-  Data.slProject.AddPair('Language', '0x409 English (United States)');
+  Data.slProject.AddPair('Default topic', '');
   Data.slProject.AddPair('Title', '');
+  Data.slProject.AddPair('Compatibility', '1.1 or later');
+  Data.slProject.AddPair('Default Font', 'Calibri,9,0');
+  Data.slProject.AddPair('Default Window', 'Main');
+  Data.slProject.AddPair('Full-text search', 'Yes');
+  Data.slProject.AddPair('Language', '0x409 English (United States)');
 
-  Data.slContent.AddPair('FrameName', 'right');
-  Data.slContent.AddPair('Font', 'Calibri,8,0');
-  Data.slContent.AddPair('ImageType', 'Book');
-  Data.slContent.AddPair('Window Styles', '0x27');
-  Data.slContent.AddPair('ExWindow Styles', '0x0');
+  Data.slContent.AddPair('Font', 'Calibri,9,0');
 
-  Data.slKeyWords.AddPair('Font', 'Calibri,8,0');
+  Data.slKeyWords.AddPair('Font', 'Calibri,9,0');
 end;
 
 destructor TProject.Destroy;
@@ -155,6 +208,22 @@ begin
   end;
 
   inherited;
+end;
+
+procedure TProject.InitProjectProperties;
+begin
+  Buttons := HHWIN_BUTTON_EXPAND or HHWIN_BUTTON_BACK or HHWIN_BUTTON_OPTIONS or HHWIN_BUTTON_PRINT;
+  WindowNav := HHWIN_PROP_TRI_PANE or HHWIN_PROP_AUTO_SYNC or HHWIN_PROP_TAB_SEARCH or HHWIN_PROP_TAB_ADVSEARCH or HHWIN_PROP_USER_POS;
+  DefaultTab := 0;
+  Top := -1;
+  Left := -1;
+  Width := 0;
+  Height := 0;
+  Home := '';
+  Jump1File := '';
+  Jump1Name := '';
+  Jump2File := '';
+  Jump2Name := '';
 end;
 
 procedure TProject.LoadHHC(FileName: String);
@@ -199,18 +268,18 @@ procedure TProject.LoadHHC(FileName: String);
       end
       else
       begin
-        if sName = 'Name' then
+        if AnsiLowerCase(sName) = 'name' then
         begin
           TObjectData(LastNode.Data).Name := sValue;
           LastNode.Text := sValue;
         end
         else
-        if sName = 'Local' then
+        if AnsiLowerCase(sName) = 'local' then
         begin
           TObjectData(LastNode.Data).URL := sValue
         end
         else
-        if sName = 'ImageNumber' then
+        if AnsiLowerCase(sName) = 'imagenumber' then
         try
           TObjectData(LastNode.Data).ImageIndex := sValue;
           LastNode.ImageIndex := StrToInt(sValue);
@@ -225,11 +294,11 @@ var
   DomTree: THyperParse;
   i: Integer;
   hhcType: THHCType;
-  LastNode, RootNode: TTreeNode;
+  CurrentNode, RootNode: TTreeNode;
 begin
   // ProjectItems[0] should exists - creates by LoadHHP
 
-  LastNode := nil;
+  CurrentNode := nil;
   RootNode := ProjectItems[0];
 
   DomTree := THyperParse.Create;
@@ -238,24 +307,14 @@ begin
 
   for i := 0 to DomTree.Count - 1 do
   begin
-    if AnsiUpperCase(DomTree.Item[i].TagName) = 'UL' then
-    begin
-      RootNode := LastNode;
-      Continue;
-    end;
-
-    if (AnsiUpperCase(DomTree.Item[i].TagName) = '/UL') and Assigned(LastNode) then
-    begin
-      RootNode := RootNode.Parent;
-      Continue;
-    end;
-
     hhcType := GetTypeHHC(DomTree.Item[i]);
 
     case hhcType of
-      hhcProperties: LastNode := ProjectItems[0];
-      hhcObject: LastNode := AddObject(RootNode);
-      hhcParameter: AddParameter(LastNode, DomTree.Item[i]);
+      hhcUL: RootNode := CurrentNode;
+      hhcEndUL: if Assigned(CurrentNode) then RootNode := RootNode.Parent;
+      hhcProperties: CurrentNode := ProjectItems[0];
+      hhcObject: CurrentNode := AddObject(RootNode);
+      hhcParameter: AddParameter(CurrentNode, DomTree.Item[i]);
     end;
   end;
 
@@ -264,9 +323,8 @@ end;
 
 procedure TProject.LoadHHK(FileName: String);
 var
-  LastNode: TTreeNode;
+  CurrentNode: TTreeNode;
   slParameters: TStringList;
-  j: Integer;
 
   procedure AddParameter(info: THtmlInfo);
   var
@@ -279,27 +337,27 @@ var
     for i := 0 to info.ParamCount - 1 do
     begin
       if AnsiLowerCase(info.Params[i].Name) = 'name' then
-        sName := AnsiLowerCase(info.Params[i].Value);
+        sName := info.Params[i].Value;
       if AnsiLowerCase(info.Params[i].Name) = 'value' then
         sValue := FromHTML(info.Params[i].Value);
     end;
 
-    if LastNode = ProjectItems[0] then
+    if CurrentNode = ProjectItems[0] then
     begin
       TProjectData(ProjectItems[0].Data).slKeyWords.Add(sName + '=' + sValue);
       Exit;
     end;
 
-    if sName = 'local' then
+    if AnsiLowerCase(sName) = 'local' then
     begin
       for i := 1 to ProjectItems.Count - 1 do
         if AnsiLowerCase(Trim(TObjectData(ProjectItems[i].Data).URL)) = AnsiLowerCase(Trim(sValue)) then
         begin
-          LastNode := ProjectItems[i];
+          CurrentNode := ProjectItems[i];
           Break;
         end;
 
-      if not Assigned(LastNode) then
+      if not Assigned(CurrentNode) then
         ShowMessage('Node not found for ' + sValue);
     end
     else
@@ -308,7 +366,7 @@ var
 
 var
   DomTree: THyperParse;
-  i: Integer;
+  i, j: Integer;
   hhcType: THHCType;
 begin
   DomTree := THyperParse.Create;
@@ -316,25 +374,23 @@ begin
   DomTree.Execute;
 
   slParameters := TStringList.Create;
-  LastNode := nil;
+  CurrentNode := nil;
 
   for i := 0 to DomTree.Count - 1 do
   begin
     hhcType := GetTypeHHC(DomTree.Item[i]);
 
-    if (AnsiUpperCase(DomTree.Item[i].TagName) = '/OBJECT') and Assigned(LastNode) and (LastNode <> ProjectItems[0]) then
-    begin
-      for j := 0 to slParameters.Count - 1 do
-        if slParameters[j] <> TObjectData(LastNode.Data).Name then
-          TObjectData(LastNode.Data).slKeyWords.Add(slParameters[j]);
-
-      slParameters.Clear;
-      Continue;
-    end;
-
     case hhcType of
-      hhcProperties: LastNode := ProjectItems[0];
-      hhcObject: LastNode := nil;
+      hhcProperties: CurrentNode := ProjectItems[0];
+      hhcObject: CurrentNode := nil;
+      hhcEndObject: if Assigned(CurrentNode) and (CurrentNode <> ProjectItems[0]) then
+        begin
+          for j := 0 to slParameters.Count - 1 do
+            if slParameters[j] <> TObjectData(CurrentNode.Data).Name then
+              TObjectData(CurrentNode.Data).slKeyWords.Add(slParameters[j]);
+
+          slParameters.Clear;
+        end;
       hhcParameter: AddParameter(DomTree.Item[i]);
     end;
 
@@ -349,10 +405,11 @@ var
   ini: TMemIniFile;
   RootNode: TTreeNode;
   Data: TProjectData;
+  slWindow: TStringList;
+  WindowParams: string;
 begin
   Result := False;
   ini := TMemIniFile.Create(FileName);
-
   FileHHC := ini.ReadString('OPTIONS', 'Contents file', ExtractFileName(ChangeFileExt(FileName, '.hhc')));
 
   if not FileExists(PrjDir + FileHHC) then
@@ -365,7 +422,7 @@ begin
 
   FileHHK := ini.ReadString('OPTIONS', 'Index file', ExtractFileName(ChangeFileExt(FileName, '.hhk')));
 
-  RootNode := ProjectItems.AddChild(nil, 'Project properties');
+  RootNode := ProjectItems.AddChild(nil, 'Project');
   RootNode.ImageIndex := 43;
   RootNode.SelectedIndex := 43;
 
@@ -376,6 +433,40 @@ begin
 
   Data.slProject.Values['Contents file'] := FileHHC;
   Data.slProject.Values['Index file'] := FileHHK;
+
+  if ini.SectionExists('WINDOWS') then
+  begin
+    WindowParams := ini.ReadString('WINDOWS', Data.slProject.Values['Default Window'], '');
+    slWindow := TStringList.Create;
+
+    if WindowParams <> '' then
+    try
+      WindowParams := StringReplace(WindowParams, '[', '"', []);
+      WindowParams := StringReplace(WindowParams, ']', '"', []);
+      slWindow.CommaText := WindowParams;
+      Home := slWindow[4];
+      Jump1File := slWindow[5];
+      Jump1Name := slWindow[6];
+      Jump2File := slWindow[7];
+      Jump2Name := slWindow[8];
+      WindowNav := NumStr2Int(slWindow[9]);
+      LeftPaneWidth := NumStr2Int(slWindow[10]);
+      Buttons := NumStr2Int(slWindow[11]);
+      DefaultTab := NumStr2Int(slWindow[17]);
+      // 19 = 0
+      slWindow.CommaText := slWindow[12];
+      if slWindow.Count > 3 then
+      begin
+        Left := NumStr2Int(slWindow[0]);
+        Top := NumStr2Int(slWindow[1]);
+        Width := NumStr2Int(slWindow[2]) - Left;
+        Height := NumStr2Int(slWindow[3]) - Top;
+      end;
+    except
+    end;
+
+    slWindow.Free;
+  end;
 
   FreeAndNil(ini);
   Result := True;
@@ -442,6 +533,7 @@ var
 var
   ProjectData: TProjectData;
   i: Integer;
+  DefWindow: string;
 begin
   if FileName <> '' then
   begin
@@ -476,16 +568,46 @@ begin
       ProjectData.slProject.Values['Title'] := ChangeFileExt(ExtractFileName(FileName), '');
   end;
 
-  DeleteFile(ProjectFile);
+  SysUtils.RenameFile(ProjectFile, ProjectFile + '.bak');
+  SysUtils.DeleteFile(ProjectFile);
 
   slHHP := TStringList.Create;
   slHHC := TStringList.Create;
   slHHK := TStringList.Create;
 
 
+  DefWindow := Trim(ProjectData.slProject.Values['Default Window']);
+  if DefWindow = '' then
+    DefWindow := 'Main';
+  ProjectData.slProject.Values['Default Window'] := DefWindow;
+
+
   slHHP.Add('[OPTIONS]');
   for i := 0 to ProjectData.slProject.Count - 1 do
     slHHP.Add(ProjectData.slProject.Names[i] + '=' + ProjectData.slProject.ValueFromIndex[i]);
+  slHHP.Add('');
+
+
+  slHHP.Add('[WINDOWS]');
+  // Name="Title","TOC_File","Index_File","Default_Topic","Home_Topic","Jump1page","Jump1title","Jump2page","Jump2title",
+  //   WinNavStyles,Left_Pane_Width,Buttons,Window_Pos,Window_Styles,Extended_Styles,?,-,Default_Tab,,0
+  slHHP.Add(DefWindow +
+    '="'  + ProjectData.slProject.Values['Title'] + '"' +
+    ',"'  + ProjectData.slProject.Values['Contents file'] + '"' +
+    ',"'  + ProjectData.slProject.Values['Index file'] + '"' +
+    ',"'  + ProjectData.slProject.Values['Default topic'] + '"' +
+    ','   + IfThen(Home <> '', '"' + Home + '"') +
+    ','   + IfThen(Jump1File <> '', '"' + Jump1File + '"') +
+    ','   + IfThen(Jump1Name <> '', '"' + Jump1Name + '"') +
+    ','   + IfThen(Jump2File <> '', '"' + Jump2File + '"') +
+    ','   + IfThen(Jump2Name <> '', '"' + Jump2Name + '"') +
+    ',0x' + IntToHex(WindowNav) +
+    ','   + IfThen(LeftPaneWidth > 0, IntToStr(LeftPaneWidth)) +
+    ',0x' + IntToHex(Buttons) +
+    ','   + IfThen(Left >= 0, '[' + IntToStr(Left) + ',' + IntToStr(Top) + ',' + IntToStr(Left + Width) + ',' + IntToStr(Top + Height) + ']') +
+    ',,,,,' + IntToStr(DefaultTab) + ',,0'
+  );
+  slHHP.Add('');
 
 
   slHHC.Add('<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">');
@@ -518,7 +640,6 @@ begin
   slHHK.Add('</OBJECT>');
 
 
-  slHHP.Add('');
   slHHP.Add('[FILES]');
 
   slHHK.Add('<UL>');

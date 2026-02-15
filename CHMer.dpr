@@ -9,7 +9,8 @@ uses
   uSettings in 'uSettings.pas' {frmSettings},
   uEditValue in 'uEditValue.pas' {frmEditValue},
   uEditFont in 'uEditFont.pas' {frmEditFont},
-  uAddNewEmpty in 'uAddNewEmpty.pas' {frmAddNewEmpty};
+  uAddNewEmpty in 'uAddNewEmpty.pas' {frmAddNewEmpty},
+  uProjectSettings in 'uProjectSettings.pas' {frmProjectSettings};
 
 {$R *.res}
 

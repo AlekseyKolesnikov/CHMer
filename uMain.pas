@@ -33,9 +33,6 @@ type
     wbBrowser: TWebBrowser;
     seHTML: TSynEdit;
     synHTMLSyn: TSynHTMLSyn;
-    pnHTMLTop: TPanel;
-    tbHTML: TToolBar;
-    btnHTMLSave: TToolButton;
     pmProjectTree: TPopupMenu;
     miAddBefore: TMenuItem;
     miAddAfter: TMenuItem;
@@ -117,7 +114,6 @@ type
     seSearch: TSynEditSearch;
     dlgFind: TFindDialog;
     dlgReplace: TReplaceDialog;
-    btnFind: TToolButton;
     actHTMLFind: TAction;
     actHTMLReplace: TAction;
     pmSearch: TPopupMenu;
@@ -151,13 +147,19 @@ type
     miSymbolRarr: TMenuItem;
     miSymbolLarr: TMenuItem;
     actCtrlSpace: TAction;
-    btnCtrlSpace: TToolButton;
     miSymbolAmp: TMenuItem;
     pmSave: TPopupMenu;
     miSaveAs: TMenuItem;
-    pnFlags: TPanel;
-    btnFlags: TSpeedButton;
+    pnProjectSettings: TPanel;
+    btnProjectSettings: TSpeedButton;
     btnDefault: TSpeedButton;
+    pnHTMLTop: TPanel;
+    tbHTML: TToolBar;
+    btnHTMLSave: TToolButton;
+    btnFind: TToolButton;
+    btnCtrlSpace: TToolButton;
+    btnView: TToolButton;
+    actViewCHM: TAction;
     procedure FormCreate(Sender: TObject);
     procedure tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
     procedure actProjectLoadExecute(Sender: TObject);
@@ -211,6 +213,9 @@ type
     procedure actCtrlSpaceExecute(Sender: TObject);
     procedure miSaveAsClick(Sender: TObject);
     procedure splHorizontalLeftMoved(Sender: TObject);
+    procedure btnDefaultClick(Sender: TObject);
+    procedure btnProjectSettingsClick(Sender: TObject);
+    procedure actViewCHMExecute(Sender: TObject);
   private
     { Private declarations }
     Project: TProject;
@@ -258,7 +263,7 @@ implementation
 
 uses
   System.UITypes, System.RegularExpressions, StrUtils, Math, Registry, ShellAPI, SynEditTypes, SynEditTextBuffer, HTMLTools, SystemUtils,
-  uSelectImage, uAddProperty, uEditValue, uEditFont, uSettings, uAddNewEmpty;
+  uSelectImage, uAddProperty, uEditValue, uEditFont, uSettings, uProjectSettings, uAddNewEmpty;
 
 const
   sContent = 'Content';
@@ -266,6 +271,44 @@ const
 
   sTitle = 'CHMer';
   sVersion = ' 1.1.0';
+
+var
+  iSelectedLangCode: Integer;
+
+procedure DestroyListLanguage(aList: TStrings; ItemIndex: Integer);
+begin
+  if ItemIndex > -1 then
+    iSelectedLangCode := Integer(Pointer(aList.Objects[ItemIndex]));
+end;
+
+procedure InitListBoolean(aList: TStrings);
+begin
+  aList.Add('Yes');
+  aList.Add('No');
+end;
+
+procedure InitListLanguage(aList: TStrings);
+var
+  i: Integer;
+  S: string;
+  stringList: TStringList;
+begin
+  for i := $401 to 65536 do
+  begin
+    S := GetLocaleName(i, LOCALE_SLOCALIZEDDISPLAYNAME);
+    if (S <> '') and (aList.IndexOf(S) < 0) then
+      aList.AddObject(S, Pointer(i));
+  end;
+
+  stringList := TStringList.Create;
+  try
+     stringList.Assign(aList);
+     stringList.Sort;
+     aList.Assign(stringList);
+  finally
+     stringList.Free;
+  end;
+end;
 
 function Spaces(count: Integer): String;
 var
@@ -552,7 +595,7 @@ begin
 
   if tvProjectTree.Selected = tvProjectTree.Items[0] then
   begin
-    ProjectData := TProjectData(tvProjectTree.Selected.Data);
+    ProjectData := TProjectData(tvProjectTree.Items[0].Data);
     sgProperties.RowCount := ProjectData.GetPropsCount + 1;
     InitProjectData(ProjectData);
   end;
@@ -571,6 +614,7 @@ begin
   actHTMLSave.Enabled := seHTML.Modified;
   actProjectSave.Enabled := ProjectOpened;
   actProjectCompile.Enabled := ProjectOpened;
+  actViewCHM.Enabled := ProjectOpened;
   actUpdateHTML.Enabled := ProjectOpened;
   actCheckNotUsed.Enabled := ProjectOpened and (Project.ProjectFile <> '');
   actEditHTML.Enabled := ProjectOpened and Assigned(SelectedObjectData);
@@ -586,7 +630,7 @@ begin
     actProjectSave.ImageIndex := 9;
 
   miSaveAs.Enabled := ProjectOpened;
-  //pnFlags.Visible := ProjectOpened;
+  pnProjectSettings.Visible := ProjectOpened;
 
   actMoveUp.Enabled := actAddBefore.Enabled and (tvProjectTree.Selected.GetPrev <> tvProjectTree.Items[0]) and (tvProjectTree.Selected.getPrevSibling <> nil);
   actMoveDown.Enabled := actAddBefore.Enabled and (tvProjectTree.Selected.getNextSibling <> nil);
@@ -681,6 +725,15 @@ begin
     Screen.Cursor := crDefault;
     slHTML.Free;
   end;
+end;
+
+procedure TfrmMain.actViewCHMExecute(Sender: TObject);
+var
+  ProjectData: TProjectData;
+begin
+  ProjectData := TProjectData(tvProjectTree.Items[0].Data);
+  ShellExecute(0, nil, PWideChar(ExtractFilePath(Project.ProjectFile) + ProjectData.slProject.Values['Compiled file']), nil,
+    PWideChar(ExtractFileDir(Project.ProjectFile)), SW_NORMAL);
 end;
 
 function TfrmMain.AddAfter(const Title, FileName: string): TTreeNode;
@@ -812,6 +865,185 @@ begin
   end;
 end;
 
+procedure TfrmMain.btnDefaultClick(Sender: TObject);
+
+  procedure CheckAndAddPair(slList: TStringList; Key, Value: String);
+  begin
+    if slList.IndexOfName(Key) < 0 then
+      slList.AddPair(Key, Value);
+  end;
+
+var
+  ProjectData: TProjectData;
+begin
+  ProjectData := TProjectData(tvProjectTree.Items[0].Data);
+
+  CheckAndAddPair(ProjectData.slProject, 'Compiled file', '');
+  CheckAndAddPair(ProjectData.slProject, 'Contents file', '');
+  CheckAndAddPair(ProjectData.slProject, 'Index file', '');
+  CheckAndAddPair(ProjectData.slProject, 'Default topic', '');
+  CheckAndAddPair(ProjectData.slProject, 'Title', '');
+  CheckAndAddPair(ProjectData.slProject, 'Compatibility', '1.1 or later');
+  CheckAndAddPair(ProjectData.slProject, 'Default Font', 'Calibri,9,0');
+  CheckAndAddPair(ProjectData.slProject, 'Default Window', 'Main');
+  CheckAndAddPair(ProjectData.slProject, 'Full-text search', 'Yes');
+  CheckAndAddPair(ProjectData.slProject, 'Language', '0x409 English (United States)');
+
+  CheckAndAddPair(ProjectData.slContent, 'Font', 'Calibri,9,0');
+
+  CheckAndAddPair(ProjectData.slKeyWords, 'Font', 'Calibri,9,0');
+
+  sgProperties.RowCount := ProjectData.GetPropsCount + 1;
+  InitProjectData(ProjectData);
+  Project.Modified := True;
+end;
+
+procedure TfrmMain.btnProjectSettingsClick(Sender: TObject);
+var
+  frmProjectSettings: TfrmProjectSettings;
+  slPages: TStringList;
+
+  procedure InitComboPage(combo: TComboBox; Value: String);
+  var
+    S: string;
+  begin
+    S := combo.Items[0];
+    combo.Items.Clear;
+    combo.Items.Text := slPages.Text;
+    combo.Items.InsertObject(0, S, nil);
+    combo.ItemIndex := combo.Items.IndexOf(Value);
+
+    if combo.ItemIndex < 0 then
+      combo.ItemIndex := 0;
+  end;
+
+var
+  i: Integer;
+  CHMData: TCHMData;
+  ObjectData: TObjectData;
+begin
+  slPages := TStringList.Create;
+  for i := 0 to tvProjectTree.Items.Count - 1 do
+  begin
+    CHMData := TCHMData(tvProjectTree.Items[i].Data);
+
+    if CHMData is TProjectData then
+      Continue;
+
+    ObjectData := TObjectData(CHMData);
+
+    if ObjectData.URL <> '' then
+      slPages.Add(ObjectData.URL);
+  end;
+  slPages.Sort;
+
+  frmProjectSettings := TfrmProjectSettings.Create(Self);
+
+  frmProjectSettings.chbBack.Checked     := Project.Buttons and HHWIN_BUTTON_BACK > 0;
+  frmProjectSettings.chbForward.Checked  := Project.Buttons and HHWIN_BUTTON_FORWARD > 0;
+  frmProjectSettings.chbSync.Checked     := Project.Buttons and HHWIN_BUTTON_SYNC > 0;
+  frmProjectSettings.chbHideShow.Checked := Project.Buttons and HHWIN_BUTTON_EXPAND > 0;
+  frmProjectSettings.chbStop.Checked     := Project.Buttons and HHWIN_BUTTON_STOP > 0;
+  frmProjectSettings.chbRefresh.Checked  := Project.Buttons and HHWIN_BUTTON_REFRESH > 0;
+  frmProjectSettings.chbOptions.Checked  := Project.Buttons and HHWIN_BUTTON_OPTIONS > 0;
+  frmProjectSettings.chbPrint.Checked    := Project.Buttons and HHWIN_BUTTON_PRINT > 0;
+  frmProjectSettings.chbZoom.Checked     := Project.Buttons and HHWIN_BUTTON_ZOOM > 0;
+
+  InitComboPage(frmProjectSettings.cmbHome, Project.Home);
+  InitComboPage(frmProjectSettings.cmbJump1, Project.Jump1File);
+  InitComboPage(frmProjectSettings.cmbJump2, Project.Jump2File);
+  slPages.Free;
+
+  frmProjectSettings.edJump1.Text := Project.Jump1Name;
+  frmProjectSettings.edJump2.Text := Project.Jump2Name;
+
+  frmProjectSettings.chbPosition.Checked := Project.Top >= 0;
+  if frmProjectSettings.chbPosition.Checked then
+  begin
+    frmProjectSettings.edPosTop.Value := Project.Top;
+    frmProjectSettings.edPosLeft.Value := Project.Left;
+    frmProjectSettings.edPosWidth.Value := Project.Width;
+    frmProjectSettings.edPosHeight.Value := Project.Height;
+  end;
+
+  frmProjectSettings.chbSavePosition.Checked  := Project.WindowNav and HHWIN_PROP_USER_POS > 0;
+  frmProjectSettings.chbWinOnTop.Checked      := Project.WindowNav and HHWIN_PROP_ONTOP > 0;
+  frmProjectSettings.chbShowMenu.Checked      := Project.WindowNav and HHWIN_PROP_MENU > 0;
+  frmProjectSettings.chbNaviShow.Checked      := Project.WindowNav and HHWIN_PROP_TRI_PANE > 0;
+  frmProjectSettings.chbNaviAutoHide.Checked  := Project.WindowNav and HHWIN_PROP_TAB_AUTOHIDESHOW > 0;
+  frmProjectSettings.chbNaviAutoSync.Checked  := Project.WindowNav and HHWIN_PROP_AUTO_SYNC > 0;
+  frmProjectSettings.chbShowSearch.Checked    := Project.WindowNav and HHWIN_PROP_TAB_SEARCH > 0;
+  frmProjectSettings.chbShowFavorites.Checked := Project.WindowNav and HHWIN_PROP_TAB_FAVORITES > 0;
+  frmProjectSettings.edLeftPaneWidth.Value    := Project.LeftPaneWidth;
+  frmProjectSettings.cmbDefaultTab.ItemIndex  := Project.DefaultTab;
+
+  if frmProjectSettings.ShowModal = mrOk then
+  begin
+    Project.Buttons := 0;
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.chbBack.Checked,        HHWIN_BUTTON_BACK, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.chbForward.Checked,     HHWIN_BUTTON_FORWARD, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.chbSync.Checked,        HHWIN_BUTTON_SYNC, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.chbHideShow.Checked,    HHWIN_BUTTON_EXPAND, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.chbStop.Checked,        HHWIN_BUTTON_STOP, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.chbRefresh.Checked,     HHWIN_BUTTON_REFRESH, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.chbOptions.Checked,     HHWIN_BUTTON_OPTIONS, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.chbPrint.Checked,       HHWIN_BUTTON_PRINT, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.chbZoom.Checked,        HHWIN_BUTTON_ZOOM, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.cmbHome.ItemIndex > 0,  HHWIN_BUTTON_HOME, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.cmbJump1.ItemIndex > 0, HHWIN_BUTTON_JUMP1, 0);
+    Project.Buttons := Project.Buttons or IfThen(frmProjectSettings.cmbJump2.ItemIndex > 0, HHWIN_BUTTON_JUMP2, 0);
+
+    if frmProjectSettings.cmbHome.ItemIndex > 0 then
+      Project.Home := frmProjectSettings.cmbHome.Text
+    else
+      Project.Home := '';
+
+    if frmProjectSettings.cmbJump1.ItemIndex > 0 then
+      Project.Jump1File := frmProjectSettings.cmbJump1.Text
+    else
+      Project.Jump1File := '';
+
+    if frmProjectSettings.cmbJump2.ItemIndex > 0 then
+      Project.Jump2File := frmProjectSettings.cmbJump2.Text
+    else
+      Project.Jump2File := '';
+
+    Project.Jump1Name := frmProjectSettings.edJump1.Text;
+    Project.Jump2Name := frmProjectSettings.edJump2.Text;
+
+    if frmProjectSettings.chbPosition.Checked then
+    begin
+      Project.Top := frmProjectSettings.edPosTop.Value;
+      Project.Left := frmProjectSettings.edPosLeft.Value;
+      Project.Width := frmProjectSettings.edPosWidth.Value;
+      Project.Height := frmProjectSettings.edPosHeight.Value;
+    end
+    else
+    begin
+      Project.Top := -1;
+      Project.Left := 0;
+      Project.Width := 0;
+      Project.Height := 0;
+    end;
+
+    Project.WindowNav := 0;
+    Project.WindowNav := Project.WindowNav or IfThen(frmProjectSettings.chbSavePosition.Checked,  HHWIN_PROP_USER_POS, 0);
+    Project.WindowNav := Project.WindowNav or IfThen(frmProjectSettings.chbWinOnTop.Checked,      HHWIN_PROP_ONTOP, 0);
+    Project.WindowNav := Project.WindowNav or IfThen(frmProjectSettings.chbShowMenu.Checked,      HHWIN_PROP_MENU, 0);
+    Project.WindowNav := Project.WindowNav or IfThen(frmProjectSettings.chbNaviShow.Checked,      HHWIN_PROP_TRI_PANE, 0);
+    Project.WindowNav := Project.WindowNav or IfThen(frmProjectSettings.chbNaviAutoHide.Checked,  HHWIN_PROP_TAB_AUTOHIDESHOW, 0);
+    Project.WindowNav := Project.WindowNav or IfThen(frmProjectSettings.chbNaviAutoSync.Checked,  HHWIN_PROP_AUTO_SYNC, 0);
+    Project.WindowNav := Project.WindowNav or IfThen(frmProjectSettings.chbShowSearch.Checked,    HHWIN_PROP_TAB_SEARCH or HHWIN_PROP_TAB_ADVSEARCH, 0);
+    Project.WindowNav := Project.WindowNav or IfThen(frmProjectSettings.chbShowFavorites.Checked, HHWIN_PROP_TAB_FAVORITES, 0);
+    Project.LeftPaneWidth := frmProjectSettings.edLeftPaneWidth.Value;
+    Project.DefaultTab := frmProjectSettings.cmbDefaultTab.ItemIndex;
+
+    Project.Modified := True;
+  end;
+
+  frmProjectSettings.Free;
+end;
+
 procedure TfrmMain.btnSettingsClick(Sender: TObject);
 var
   frmSettings: TfrmSettings;
@@ -870,6 +1102,12 @@ begin
     FreeAndNil(Project);
 
   tvProjectTree.Items.Clear;
+  sgProperties.Cells[1, 0] := '';
+  sgProperties.Rows[1].Clear;
+  sgProperties.RowCount := 2;
+  pcMainPages.ActivePageIndex := 0;
+  tsHTML.TabVisible := False;
+  pnHTMLTop.Visible := False;
   wbBrowser.Navigate('about:blank');
   seHTML.Lines.Clear;
   memKeyWords.OnChange := nil;
@@ -930,6 +1168,7 @@ begin
   fsLayout.UseRegistry := True;
   pcMainPages.ActivePageIndex := 0;
   tsHTML.TabVisible := False;
+  pnHTMLTop.Visible := False;
 
   Project := nil;
   SelectedObjectData := nil;
@@ -1098,7 +1337,7 @@ function TfrmMain.GetProjectDataList(var aName: string): TStringList;
 var
   ProjectData: TProjectData;
 begin
-  ProjectData := TProjectData(tvProjectTree.Selected.Data);
+  ProjectData := TProjectData(tvProjectTree.Items[0].Data);
 
   if Copy(aName, 1, 8) = sContent + ':' then
   begin
@@ -1331,7 +1570,7 @@ begin
 
   if frmAddProperty.ShowModal = mrOk then
   begin
-    ProjectData := TProjectData(tvProjectTree.Selected.Data);
+    ProjectData := TProjectData(tvProjectTree.Items[0].Data);
 
     case frmAddProperty.rgSection.ItemIndex of
       0: slList := ProjectData.slProject;
@@ -1362,7 +1601,7 @@ begin
 
   if (Sender = nil) or (MessageDlg('Remove "' + aName + '"?', mtConfirmation, mbYesNo, 0) = mrYes) then
   begin
-    ProjectData := TProjectData(tvProjectTree.Selected.Data);
+    ProjectData := TProjectData(tvProjectTree.Items[0].Data);
     value := sgProperties.Cells[1, sgProperties.Row];
     slList := GetProjectDataList(aName);
 
@@ -1444,12 +1683,6 @@ begin
   miPropertiesDelete.Enabled := miPropertiesAdd.Enabled;
 end;
 
-procedure InitListBoolean(aList: TStrings);
-begin
-  aList.Add('Yes');
-  aList.Add('No');
-end;
-
 procedure TfrmMain.PropertiesEditBoolean;
 var
   value, aName: string;
@@ -1477,7 +1710,7 @@ begin
   if dlgOpenHTML.Execute then
   begin
     sgProperties.Cells[1, sgProperties.Row] := ExtractFileName(dlgOpenHTML.FileName);
-    ProjectData := TProjectData(tvProjectTree.Selected.Data);
+    ProjectData := TProjectData(tvProjectTree.Items[0].Data);
     ProjectData.slProject.Values[sgProperties.Cells[0, sgProperties.Row]] := sgProperties.Cells[1, sgProperties.Row];
     Project.Modified := True;
   end;
@@ -1574,38 +1807,6 @@ begin
     tvProjectTree.Invalidate;
     Project.Modified := True;
   end;
-end;
-
-procedure InitListLanguage(aList: TStrings);
-var
-  i: Integer;
-  S: string;
-  stringList: TStringList;
-begin
-  for i := $401 to 65536 do
-  begin
-    S := GetLocaleName(i, LOCALE_SLOCALIZEDDISPLAYNAME);
-    if (S <> '') and (aList.IndexOf(S) < 0) then
-      aList.AddObject(S, Pointer(i));
-  end;
-
-  stringList := TStringList.Create;
-  try
-     stringList.Assign(aList);
-     stringList.Sort;
-     aList.Assign(stringList);
-  finally
-     stringList.Free;
-  end;
-end;
-
-var
-  iSelectedLangCode: Integer;
-
-procedure DestroyListLanguage(aList: TStrings; ItemIndex: Integer);
-begin
-  if ItemIndex > -1 then
-    iSelectedLangCode := Integer(Pointer(aList.Objects[ItemIndex]));
 end;
 
 procedure TfrmMain.PropertiesEditLanguage;
@@ -1814,6 +2015,7 @@ begin
     SelectedObjectData := TObjectData(CHMData);
 
   tsHTML.TabVisible := Assigned(SelectedObjectData) and (SelectedObjectData.URL <> '');
+  pnHTMLTop.Visible := tsHTML.TabVisible;
 
   sgProperties.RowCount := CHMData.GetPropsCount + 1;
   sgProperties.Cells[1, 0] := '[' + tvProjectTree.Selected.Text + ']';

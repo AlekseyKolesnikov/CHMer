@@ -64,6 +64,7 @@ object frmAddProperty: TfrmAddProperty
     Height = 21
     Anchors = [akLeft, akTop, akRight]
     TabOrder = 2
+    OnChange = edNameChange
   end
   object btnOK: TButton
     Left = 90
