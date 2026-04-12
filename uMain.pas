@@ -270,7 +270,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.1.0';
+  sVersion = ' 1.1.1';
 
 var
   iSelectedLangCode: Integer;
@@ -487,7 +487,7 @@ begin
     if FileName <> '' then
     try
       FileName := Project.PrjDir + FileName;
-      slHTML.SaveToFile(Project.PrjDir + FileName, TEncoding.UTF8);
+      slHTML.SaveToFile(FileName, TEncoding.UTF8);
     except
       ShowMessage('Error saving file');
       slHTML.Free;
@@ -530,7 +530,7 @@ begin
   try
     btnProjectCompile.Down := True;
     Screen.Cursor := crAppStart;
-    ExecInMemo(hhc + ' ' + Project.ProjectFile, ExtractFileDir(hhc), memInfo, eimShowStdOut or eimShowStdErr);
+    ExecInMemo(hhc + ' "' + Project.ProjectFile + '"', ExtractFileDir(hhc), memInfo, eimShowStdOut or eimShowStdErr);
   finally
     Screen.Cursor := crDefault;
     btnProjectCompile.Down := False;
