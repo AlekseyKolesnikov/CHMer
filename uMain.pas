@@ -270,7 +270,7 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.1.1';
+  sVersion = ' 1.1.2';
 
 var
   iSelectedLangCode: Integer;
@@ -1923,7 +1923,7 @@ begin
     if ObjectData.URL = '' then
       Continue;
 
-    if Pos(AnsiLowerCase(ObjectData.URL), AnsiLowerCase(URL)) > 0 then
+    if (AnsiLowerCase(ObjectData.URL) = AnsiLowerCase(URL)) or (Pos(AnsiLowerCase('\' + ObjectData.URL), AnsiLowerCase(URL)) > 0) then
     begin
       if tvProjectTree.Selected <> tvProjectTree.Items[iItem] then
         tvProjectTree.Selected := tvProjectTree.Items[iItem];
