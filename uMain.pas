@@ -270,15 +270,50 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
-  sVersion = ' 1.1.2';
 
 var
   iSelectedLangCode: Integer;
+  sVersion: String = '';
 
 procedure DestroyListLanguage(aList: TStrings; ItemIndex: Integer);
 begin
   if ItemIndex > -1 then
     iSelectedLangCode := Integer(Pointer(aList.Objects[ItemIndex]));
+end;
+
+procedure GetBytes(Value: integer; var Value1, Value2: integer);
+begin
+  Value1 := Value div 65536;
+  Value2 := Value mod 65536;
+end;
+
+function GetFileVersionStr(const sFileName: string): string;
+var
+  n, Len: Cardinal;
+  Buf: PChar;
+  FileInfo: PVSFixedFileInfo;
+  x1, x2, x3, x4: integer;
+begin
+  Result := '';
+  n := GetFileVersionInfoSize(PChar(sFileName), n);
+
+  if (n > 0) then
+  begin
+    Buf := AllocMem(n);
+
+    try
+      Windows.GetFileVersionInfo(PChar(sFileName), 0, n, Buf);
+
+      if VerQueryValue(Buf, '\', Pointer(FileInfo), Len) then
+      begin
+        GetBytes(FileInfo.dwFileVersionMS, x1, x2);
+        GetBytes(FileInfo.dwFileVersionLS, x3, x4);
+        Result := format('%d.%d.%d.%d', [x1, x2, x3, x4]);
+      end;
+    finally
+      FreeMem(Buf, n);
+    end;
+  end;
 end;
 
 procedure InitListBoolean(aList: TStrings);
@@ -1163,6 +1198,11 @@ procedure TfrmMain.FormCreate(Sender: TObject);
 var
   reg: TRegIniFile;
 begin
+  try
+    sVersion := ' ' + GetFileVersionStr(Application.ExeName);
+  except
+  end;
+
   Self.Caption := sTitle + sVersion;
   Application.Title := sTitle;
   fsLayout.UseRegistry := True;
@@ -2122,7 +2162,7 @@ begin
       if k > 0 then
         SetLength(sRef, k - 1);
 
-      if not FileExists(Project.PrjDir + sRef) then
+      if (sRef <> '') and (not FileExists(Project.PrjDir + sRef)) then
         memInfo.Lines.Add(ObjectData.URL + ': missed file ' + sRef);
     end;
   end;

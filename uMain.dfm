@@ -221,19 +221,17 @@ object frmMain: TfrmMain
     end
     object pnProjectTree: TPanel
       Left = 0
-      Top = 38
+      Top = 35
       Width = 305
-      Height = 366
+      Height = 369
       Align = alClient
       BevelOuter = bvNone
       TabOrder = 2
-      ExplicitTop = 35
-      ExplicitHeight = 369
       object tvProjectTree: TTreeView
         Left = 27
         Top = 0
         Width = 278
-        Height = 366
+        Height = 369
         Align = alClient
         HideSelection = False
         Images = ilHelp
@@ -243,20 +241,18 @@ object frmMain: TfrmMain
         TabOrder = 0
         OnChange = tvProjectTreeChange
         OnDeletion = tvProjectTreeDeletion
-        ExplicitHeight = 369
       end
       object pnLeftToolbar: TPanel
         Left = 0
         Top = 0
         Width = 27
-        Height = 366
+        Height = 369
         Align = alLeft
         BevelInner = bvLowered
         BevelOuter = bvNone
         DoubleBuffered = False
         ParentDoubleBuffered = False
         TabOrder = 1
-        ExplicitHeight = 369
         object tbLeftToolbar: TToolBar
           AlignWithMargins = True
           Left = 3
@@ -421,6 +417,7 @@ object frmMain: TfrmMain
       Left = 2
       Top = 4
       Width = 303
+      Height = 29
       Margins.Left = 2
       Margins.Top = 4
       Margins.Right = 0
@@ -594,6 +591,10 @@ object frmMain: TfrmMain
         TabOrder = 0
         object tsPreview: TTabSheet
           Caption = 'Preview'
+          ExplicitLeft = 0
+          ExplicitTop = 0
+          ExplicitWidth = 0
+          ExplicitHeight = 0
           object wbBrowser: TWebBrowser
             Left = 0
             Top = 0
