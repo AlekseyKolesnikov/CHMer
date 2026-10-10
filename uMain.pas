@@ -601,7 +601,7 @@ end;
 
 procedure TfrmMain.actCompileWHExecute(Sender: TObject);
 var
-  WebHelpExe, OutDir: string;
+  WebHelpExe, OutDir, IconArg: string;
   SelectDir: Boolean;
 begin
   SelectDir := GetKeyState(VK_SHIFT) < 0; // Shift+click selects another output folder
@@ -623,13 +623,18 @@ begin
   if Project.ProjectFile = '' then
     Exit;
 
+  IconArg := Trim(Project.Settings.Values[sWebHelpIcon]);
+
+  if IconArg <> '' then
+    IconArg := ' --icon "' + ExpandPath(Project.PrjDir, IconArg) + '"';
+
   memInfo.Lines.Clear;
 
   try
     btnCompileWH.Down := True;
     Screen.Cursor := crAppStart;
     // Without the trailing backslash: \" would be read as a quote inside the argument
-    ExecInMemo('"' + WebHelpExe + '" "' + Project.ProjectFile + '" "' + ExcludeTrailingPathDelimiter(OutDir) + '"',
+    ExecInMemo('"' + WebHelpExe + '" "' + Project.ProjectFile + '" "' + ExcludeTrailingPathDelimiter(OutDir) + '"' + IconArg,
       Project.PrjDir, memInfo, eimShowStdOut or eimShowStdErr, False, TEncoding.UTF8);
   finally
     Screen.Cursor := crDefault;
@@ -1101,6 +1106,7 @@ begin
 
   frmProjectSettings.BaseDir := Project.PrjDir;
   frmProjectSettings.deWebHelpOutput.Text := Project.Settings.Values[sWebHelpOutput];
+  frmProjectSettings.feWebHelpIcon.Text := Project.Settings.Values[sWebHelpIcon];
 
   if frmProjectSettings.ShowModal = mrOk then
   begin
@@ -1164,6 +1170,7 @@ begin
     Project.DefaultTab := frmProjectSettings.cmbDefaultTab.ItemIndex;
 
     Project.Settings.Values[sWebHelpOutput] := AnsiDequotedStr(Trim(frmProjectSettings.deWebHelpOutput.Text), '"'); // empty removes it
+    Project.Settings.Values[sWebHelpIcon] := AnsiDequotedStr(Trim(frmProjectSettings.feWebHelpIcon.Text), '"');
 
     Project.Modified := True;
   end;

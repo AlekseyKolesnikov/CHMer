@@ -1,6 +1,6 @@
 r"""Builds a WebHelp folder from an HTML Help (CHM) project.
 
-  build_webhelp.py PROJECT.hhp OUTPUT_FOLDER
+  build_webhelp.py PROJECT.hhp OUTPUT_FOLDER [--icon ICON_FILE]
 
 The files listed in the project's [FILES] section are copied with their paths relative to
 the .hhp, so a topic opens as OUTPUT_FOLDER\<path>, the same name it has inside the CHM.
@@ -11,6 +11,8 @@ a Contents / Index / Search sidebar built from the project's .hhc and .hhk:
   <out>\webhelp\search.js   plain text of every topic, loaded when the Search tab opens
   <out>\webhelp\webhelp.js, webhelp.css   the frame itself, copied from this script's folder
                                           (packed into build_webhelp.exe by build_webhelp_exe.bat)
+  <out>\webhelp\favicon.*   the --icon file, linked from every topic that has no icon of its own,
+                            so browsers show it in the tab
 
 Files the topics reference (images, stylesheets and what those reference) are copied too.
 The data is loaded with <script> tags, not fetch(), because the help is meant to work from
@@ -38,6 +40,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 ASSET_DIR = 'webhelp'
 ASSETS = ('webhelp.js', 'webhelp.css')
 TOPIC_EXT = ('.htm', '.html')
+ICON_EXT = ('.ico', '.png', '.svg', '.gif')
 # Text that is not UTF-8 was written by HTML Help Workshop or CHMer in the Windows ANSI code page,
 # which hhc.exe needs for the contents and index files
 ANSI = 'mbcs' if sys.platform == 'win32' else 'latin-1'
@@ -272,21 +275,26 @@ class Topic:
 
 
 HEAD_END = re.compile(rb'</head\s*>', re.I)
+# rel="icon" or rel="shortcut icon", not rel="apple-touch-icon"
+ICON_LINK = re.compile(rb'<link\b[^>]*\brel\s*=\s*["\']?(shortcut\s+)?icon\b(?!-)', re.I)
 
 
-def inject(data, prefix):
-    """Adds the WebHelp stylesheet and scripts before </head>; prefix leads from the
-    topic's folder back to the WebHelp root."""
+def inject(data, prefix, icon=None):
+    """Adds the WebHelp stylesheet and scripts before </head>, and a link to the icon when
+    the topic has no icon of its own; prefix leads from the topic's folder back to the
+    WebHelp root, icon is the icon's name in the WebHelp folder."""
     m = HEAD_END.search(data)
     if not m:
         return None
     nl = b'\r\n' if b'\r\n' in data else b'\n'
     assets = (prefix + ASSET_DIR + '/').encode('ascii')
-    lines = (
+    lines = [
         b'<link type="text/css" href="' + assets + b'webhelp.css" rel="stylesheet" />',
         b'<script type="text/javascript" src="' + assets + b'data.js" defer="defer"></script>',
         b'<script type="text/javascript" src="' + assets + b'webhelp.js" defer="defer"></script>',
-    )
+    ]
+    if icon and not ICON_LINK.search(data, 0, m.start()):
+        lines.append(b'<link rel="icon" href="' + assets + icon.encode('ascii') + b'" />')
     return data[:m.start()] + b''.join(b'  ' + line + nl for line in lines) + data[m.start():]
 
 
@@ -296,10 +304,18 @@ CSS_REF = re.compile(r'url\(\s*["\']?([^"\')]+)|@import\s+["\']([^"\']+)', re.I)
 # ---------------------------------------------------------------------------
 # Build
 
-def build(project, out_dir):
+def build(project, out_dir, icon=None):
     project = project.resolve()
     if not project.is_file():
         raise BuildError(f'{project} not found')
+    icon_name = None
+    if icon:
+        icon = icon.resolve()
+        if not icon.is_file():
+            raise BuildError(f'icon {icon} not found')
+        if icon.suffix.lower() not in ICON_EXT:
+            raise BuildError(f'icon {icon.name} must be one of {", ".join(ICON_EXT)}')
+        icon_name = 'favicon' + icon.suffix.lower()
     root = project.parent
     files = ProjectFiles(root)
     options, windows, file_list = read_hhp(project)
@@ -451,7 +467,7 @@ def build(project, out_dir):
     # Output
     clean_output(out_dir, root)
     for topic in topics.values():
-        data = inject(topic.data, '../' * topic.rel.count('/'))
+        data = inject(topic.data, '../' * topic.rel.count('/'), icon_name)
         if data is None:
             warn(f'{topic.rel}: no </head>, copied without the WebHelp frame')
             data = topic.data
@@ -460,6 +476,8 @@ def build(project, out_dir):
         write(out_dir / rel, files.read(rel))
     for asset in ASSETS:
         write(out_dir / ASSET_DIR / asset, (SCRIPT_DIR / asset).read_bytes())
+    if icon_name:
+        write(out_dir / ASSET_DIR / icon_name, icon.read_bytes())
 
     data = {
         'title': title,
@@ -473,7 +491,7 @@ def build(project, out_dir):
     write(out_dir / ASSET_DIR / 'data.js', js_assign('WEBHELP', data))
     write(out_dir / ASSET_DIR / 'search.js', js_assign('WEBHELP_SEARCH', docs))
     if 'index.html' not in topics and 'index.html' not in resources:
-        write(out_dir / 'index.html', index_page(title, default))
+        write(out_dir / 'index.html', index_page(title, default, icon_name))
 
     print(f'  {len(topics)} topics, {len(resources)} other files')
 
@@ -482,11 +500,12 @@ def js_assign(name, value):
     return f'window.{name} = {json.dumps(value, ensure_ascii=True, separators=(",", ":"))};\n'.encode('ascii')
 
 
-def index_page(title, default):
+def index_page(title, default, icon_name=None):
     title = title.replace('&', '&amp;').replace('<', '&lt;')
     path, sep, anchor = default.partition('#')
     url = quote(path) + sep + anchor
-    return (f'<!DOCTYPE html>\r\n<html>\r\n<head>\r\n  <meta charset="utf-8" />\r\n  <title>{title}</title>\r\n'
+    icon = f'  <link rel="icon" href="{ASSET_DIR}/{icon_name}" />\r\n' if icon_name else ''
+    return (f'<!DOCTYPE html>\r\n<html>\r\n<head>\r\n  <meta charset="utf-8" />\r\n  <title>{title}</title>\r\n{icon}'
             f'  <meta http-equiv="refresh" content="0; url={url}" />\r\n</head>\r\n'
             f'<body>\r\n  <p><a href="{url}">{title}</a></p>\r\n</body>\r\n</html>\r\n').encode('utf-8')
 
@@ -517,9 +536,10 @@ def main():
     parser = argparse.ArgumentParser(description='Builds a WebHelp folder from an HTML Help (CHM) project.')
     parser.add_argument('project', type=Path, help='the .hhp project file')
     parser.add_argument('output', type=Path, help='the WebHelp folder to create; a previous build there is replaced')
+    parser.add_argument('--icon', type=Path, help=f'the icon browsers show in the tab: {", ".join(ICON_EXT)}')
     args = parser.parse_args()
     try:
-        build(args.project, args.output)
+        build(args.project, args.output, args.icon)
     except BuildError as e:
         print(f'error: {e}')
         return 1

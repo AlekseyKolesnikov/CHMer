@@ -316,26 +316,30 @@ li.wh-open > .wh-row > button.wh-twisty::before {
   color: var(--wh-muted);
 }
 
-/* Narrow windows: the sidebar opens over the topic */
+/* Narrow windows: the sidebar opens over the topic. webhelp.js sets wh-narrow, counting the
+   help's own zoom, which a media query can't; that zoom also scales vw, hence the 85% */
 
-@media (max-width: 800px) {
-  body,
-  html.wh-side-hidden body {
+@media screen {
+  html.wh-narrow body {
     margin-left: 16px;
     margin-right: 16px;
   }
 
-  #wh-side {
-    width: min(var(--wh-side-width), 85vw);
+  html.wh-narrow #wh-side {
+    width: min(var(--wh-side-width), 85%);
     box-shadow: 4px 0 16px rgba(0, 0, 0, 0.2);
   }
 
-  #wh-header .wh-links {
+  html.wh-narrow #wh-header .wh-links {
     display: none;
   }
 }
 
 @media print {
+  html {
+    zoom: 1 !important;
+  }
+
   #wh-header,
   #wh-side {
     display: none;

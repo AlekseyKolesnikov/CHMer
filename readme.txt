@@ -1,4 +1,4 @@
-CHMer 1.2.0
+CHMer 1.2.1
 Copyright (C) 2019-2026 by Alexey Kolesnikov.
 Email: ak@blu-disc.net
 Website: https://github.com/AlekseyKolesnikov/CHMer
@@ -20,7 +20,7 @@ Features:
   * Update HTML titles with tree titles - scans all used htmls and replaces <title>...</title> with the corresponding names of the content tree nodes.
   * Simple validation: checks for unused HTMLs and missed files.
   * Ctrl+Space in the HTML editor opens the context menu for inserting a tag/symbol.
-  * Compile WebHelp (Ctrl+F9) - an HTML version of the help with contents, index and search that works from a local folder or a web server. The output folder is set in Project settings (relative to the project folder); when it is empty, the build asks for it, and Shift+click the button selects another one. The folder must be empty or contain a previous WebHelp: it is replaced on every build.
+  * Compile WebHelp (Ctrl+F9) - an HTML version of the help with contents, index and search that works from a local folder or a web server. The output folder is set in Project settings (relative to the project folder); when it is empty, the build asks for it, and Shift+click the button selects another one. The folder must be empty or contain a previous WebHelp: it is replaced on every build. The tab icon (.ico, .png, .svg or .gif, also set in Project settings) is shown by browsers in the page tab, like a site's favicon; topics that link their own icon keep it.
   * CHMer settings, like the WebHelp output folder, are stored in the .hhp as comment lines after "; [CHMer]", so HTML Help Workshop ignores them.
 
 Building build_webhelp.exe:

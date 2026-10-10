@@ -4,7 +4,7 @@ object frmProjectSettings: TfrmProjectSettings
   ActiveControl = chbBack
   BorderStyle = bsDialog
   Caption = 'Project settings'
-  ClientHeight = 435
+  ClientHeight = 462
   ClientWidth = 452
   Color = clBtnFace
   DoubleBuffered = True
@@ -18,12 +18,12 @@ object frmProjectSettings: TfrmProjectSettings
   ShowHint = True
   DesignSize = (
     452
-    435)
+    462)
   PixelsPerInch = 96
   TextHeight = 13
   object btnOK: TButton
     Left = 288
-    Top = 402
+    Top = 429
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
@@ -34,7 +34,7 @@ object frmProjectSettings: TfrmProjectSettings
   end
   object btnCancel: TButton
     Left = 369
-    Top = 402
+    Top = 429
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
@@ -405,7 +405,7 @@ object frmProjectSettings: TfrmProjectSettings
     Left = 8
     Top = 344
     Width = 436
-    Height = 50
+    Height = 77
     Caption = 'WebHelp'
     TabOrder = 3
     object Label10: TLabel
@@ -414,6 +414,13 @@ object frmProjectSettings: TfrmProjectSettings
       Width = 65
       Height = 13
       Caption = 'Output folder'
+    end
+    object Label11: TLabel
+      Left = 10
+      Top = 48
+      Width = 42
+      Height = 13
+      Caption = 'Tab icon'
     end
     object deWebHelpOutput: TDirectoryEdit
       Left = 84
@@ -426,6 +433,22 @@ object frmProjectSettings: TfrmProjectSettings
       OnBeforeDialog = deWebHelpOutputBeforeDialog
       NumGlyphs = 1
       TabOrder = 0
+      Text = ''
+    end
+    object feWebHelpIcon: TFilenameEdit
+      Left = 84
+      Top = 45
+      Width = 342
+      Height = 21
+      Hint =
+        'Shown by browsers in the tab (.ico, .png, .svg or .gif). Relativ' +
+        'e to the project folder. Empty - no icon.'
+      OnBeforeDialog = feWebHelpIconBeforeDialog
+      Filter =
+        'Icons (*.ico;*.png;*.svg;*.gif)|*.ico;*.png;*.svg;*.gif|All file' +
+        's (*.*)|*.*'
+      NumGlyphs = 1
+      TabOrder = 1
       Text = ''
     end
   end

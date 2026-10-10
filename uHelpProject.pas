@@ -10,6 +10,7 @@ const
   // hhc ignores comments, but warns about unknown options and sections
   sSettingsHeader = '[CHMer]';
   sWebHelpOutput = 'WebHelp output';
+  sWebHelpIcon = 'WebHelp icon';
 
   {Buttons
   HHWIN_BUTTON_EXPAND  = $000002; // Expand/contract button (Hide/Show navigation tree)

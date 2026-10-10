@@ -54,13 +54,16 @@ type
     gbWebHelp: TGroupBox;
     Label10: TLabel;
     deWebHelpOutput: TDirectoryEdit;
+    Label11: TLabel;
+    feWebHelpIcon: TFilenameEdit;
     procedure edSpinEditChange(Sender: TObject);
     procedure deWebHelpOutputBeforeDialog(Sender: TObject; var AName: string; var Action: Boolean);
+    procedure feWebHelpIconBeforeDialog(Sender: TObject; var AName: string; var Action: Boolean);
   private
     { Private declarations }
   public
     { Public declarations }
-    BaseDir: String; // the project folder: deWebHelpOutput is relative to it
+    BaseDir: String; // the project folder: deWebHelpOutput and feWebHelpIcon are relative to it
   end;
 
 implementation
@@ -68,7 +71,7 @@ implementation
 {$R *.dfm}
 
 uses
-  uEditValue;
+  uEditValue, SystemUtils;
 
 // RxLib's folder dialogs are the Windows 3.1 style one and a SHBrowseForFolder wrapper that is not 64-bit safe
 procedure TfrmProjectSettings.deWebHelpOutputBeforeDialog(Sender: TObject; var AName: string; var Action: Boolean);
@@ -80,6 +83,25 @@ begin
 
   if BrowseFolder('WebHelp output folder (replaced on every build)', BaseDir, Dir) then
     deWebHelpOutput.Text := Dir;
+end;
+
+// Shown here instead of by RxLib, which cuts the name at the first space and resolves it against the current folder
+procedure TfrmProjectSettings.feWebHelpIconBeforeDialog(Sender: TObject; var AName: string; var Action: Boolean);
+var
+  FileName: String;
+begin
+  Action := False;
+  FileName := ExpandPath(BaseDir, AnsiDequotedStr(Trim(feWebHelpIcon.Text), '"'));
+
+  if DirectoryExists(ExtractFileDir(FileName)) then
+    feWebHelpIcon.Dialog.InitialDir := ExtractFileDir(FileName)
+  else
+    feWebHelpIcon.Dialog.InitialDir := BaseDir;
+
+  feWebHelpIcon.Dialog.FileName := ExtractFileName(FileName);
+
+  if feWebHelpIcon.Dialog.Execute then
+    feWebHelpIcon.Text := RelativePath(BaseDir, feWebHelpIcon.Dialog.FileName);
 end;
 
 procedure TfrmProjectSettings.edSpinEditChange(Sender: TObject);

@@ -15,8 +15,8 @@
   const page = keyOf(location.href);
   const KEY = 'wh:' + H.title + ':';
 
-  // sessionStorage keeps the sidebar state between pages; Firefox gives every file:// page
-  // its own storage, so there it simply starts fresh on each page
+  // sessionStorage keeps the sidebar state between pages; on file:// Firefox shares it only
+  // between pages of one folder, so in other folders it starts fresh
   const session = storage(function () { return window.sessionStorage; });
   const local = storage(function () { return window.localStorage; });
 
@@ -335,19 +335,121 @@
     if (id === 'search') runSearch();
   }
 
-  // Sidebar visibility: remembered on wide windows, closed by default on narrow ones
-  const narrow = window.matchMedia('(max-width: 800px)');
+  // Zoom: browsers keep the zoom of a file:// page for that one file, so there the help zooms
+  // itself on Ctrl+plus / minus / 0 and Ctrl+wheel, with one zoom for all its pages, as browsers
+  // do for a website. Ctrl+0 also goes on to the browser and resets its own zoom of the page.
+  const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
+  let zoom = 1;
+
+  // On file:// Firefox gives each page its own localStorage but shares cookies between all of
+  // them, while Chrome shares localStorage and has no cookies, so the zoom is kept in both
+  const ZOOM_COOKIE = 'wh-zoom-' + encodeURIComponent(H.title).replace(/[^\w%-]/g, '_');
+
+  function storedZoom() {
+    let c = null;
+    try {
+      c = document.cookie.split('; ').find(function (s) { return s.startsWith(ZOOM_COOKIE + '='); });
+    } catch (e) { /* cookies unavailable */ }
+    return Number(c ? c.slice(ZOOM_COOKIE.length + 1) : local.get('zoom'));
+  }
+
+  function setZoom(z, save) {
+    if (ZOOMS.indexOf(z) < 0) z = 1;
+    if (save) {
+      local.set('zoom', String(z));
+      try { document.cookie = ZOOM_COOKIE + '=' + z + '; path=/; max-age=31536000'; } catch (e) { /* cookies unavailable */ }
+    }
+    if (z === zoom) return;
+    const top = header.isConnected && topicAt();
+    zoom = z;
+    root.style.zoom = z === 1 ? '' : String(z);
+    layout();
+    if (top) {
+      const r = top.e.getBoundingClientRect();
+      window.scrollBy(0, r.top + r.height * top.f - top.y);
+    }
+  }
+
+  function zoomStep(dir) {
+    const i = ZOOMS.indexOf(zoom) + dir;
+    if (i >= 0 && i < ZOOMS.length) setZoom(ZOOMS[i], true);
+  }
+
+  // The topic element at the top of the window and the part of it there, kept in place when the
+  // zoom changes
+  function topicAt() {
+    const x = document.body.getBoundingClientRect().left + 1;
+    for (let y = header.getBoundingClientRect().bottom + 1; y < window.innerHeight; y += 8) {
+      const e = document.elementFromPoint(x, y);
+      if (e && e !== document.body && e !== root && !side.contains(e)) {
+        const r = e.getBoundingClientRect();
+        return { e: e, y: y, f: (y - r.top) / r.height };
+      }
+    }
+    return null;
+  }
+
+  // Sidebar visibility: remembered on wide windows, closed by default on narrow ones. A window is
+  // narrow below 800 zoomed pixels, as a media query counts them with the browser's own zoom
+  let narrow = null;
   function showSide(show) {
     root.classList.toggle('wh-side-hidden', !show);
     toggle.setAttribute('aria-expanded', String(show));
   }
+  function layout() {
+    const n = window.innerWidth <= 800 * zoom;
+    if (n === narrow) return;
+    narrow = n;
+    root.classList.toggle('wh-narrow', n);
+    showSide(!n && local.get('side') !== '0');
+  }
   toggle.addEventListener('click', function () {
     const show = root.classList.contains('wh-side-hidden');
     showSide(show);
-    if (!narrow.matches) local.set('side', show ? '1' : '0');
+    if (!narrow) local.set('side', show ? '1' : '0');
   });
-  narrow.addEventListener('change', function () { showSide(!narrow.matches && local.get('side') !== '0'); });
-  showSide(!narrow.matches && local.get('side') !== '0');
+  window.addEventListener('resize', layout);
+
+  if (location.protocol === 'file:' && CSS.supports('zoom', '2')) {
+    setZoom(storedZoom(), false);
+    window.addEventListener('keydown', function (e) {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      if (e.key === '0') {
+        setZoom(1, true);
+        return;
+      }
+      const dir = e.key === '+' || e.key === '=' ? 1 : e.key === '-' || e.key === '_' ? -1 : 0;
+      if (dir) {
+        e.preventDefault();
+        zoomStep(dir);
+      }
+    });
+    // A touchpad sends many small steps: they are added up to about one wheel notch
+    let wheel = 0;
+    window.addEventListener('wheel', function (e) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const d = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 800 : 1);
+      wheel = d * wheel < 0 ? d : wheel + d;
+      if (Math.abs(wheel) >= 50) {
+        zoomStep(wheel < 0 ? 1 : -1);
+        wheel = 0;
+      }
+    }, { passive: false });
+    // Zooming in one tab zooms the help's other tabs too (Firefox has no event for cookies, so
+    // there a tab catches up when it is shown again); a page brought back from the back/forward
+    // cache missed the zooming done since it was left
+    window.addEventListener('storage', function (e) {
+      if (e.key === KEY + 'zoom') setZoom(storedZoom(), false);
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) setZoom(storedZoom(), false);
+    });
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) setZoom(storedZoom(), false);
+    });
+  }
+  layout();
 
   document.body.prepend(header, side);
   const stored = session.get('tab');
@@ -363,7 +465,8 @@
   if (mark) {
     const r = mark.getBoundingClientRect();
     const p = tocPanel.getBoundingClientRect();
-    if (r.top < p.top || r.bottom > p.bottom) tocPanel.scrollTop += r.top - p.top - p.height / 2;
+    // scrollTop is in unzoomed pixels, the rectangles in zoomed ones
+    if (r.top < p.top || r.bottom > p.bottom) tocPanel.scrollTop += (r.top - p.top - p.height / 2) / zoom;
   }
   window.addEventListener('pagehide', function () {
     const panel = tabs.find(function (t) { return t.id === activeTab; }).panel;
