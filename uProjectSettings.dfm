@@ -4,7 +4,7 @@ object frmProjectSettings: TfrmProjectSettings
   ActiveControl = chbBack
   BorderStyle = bsDialog
   Caption = 'Project settings'
-  ClientHeight = 379
+  ClientHeight = 435
   ClientWidth = 452
   Color = clBtnFace
   DoubleBuffered = True
@@ -18,32 +18,30 @@ object frmProjectSettings: TfrmProjectSettings
   ShowHint = True
   DesignSize = (
     452
-    379)
+    435)
   PixelsPerInch = 96
   TextHeight = 13
   object btnOK: TButton
     Left = 288
-    Top = 346
+    Top = 402
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
     Caption = 'OK'
     Default = True
     ModalResult = 1
-    TabOrder = 3
-    ExplicitTop = 318
+    TabOrder = 4
   end
   object btnCancel: TButton
     Left = 369
-    Top = 346
+    Top = 402
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
     Cancel = True
     Caption = 'Cancel'
     ModalResult = 2
-    TabOrder = 4
-    ExplicitTop = 318
+    TabOrder = 5
   end
   object gbButtons: TGroupBox
     Left = 8
@@ -401,6 +399,34 @@ object frmProjectSettings: TfrmProjectSettings
       TabOrder = 4
       Value = 400
       OnChange = edSpinEditChange
+    end
+  end
+  object gbWebHelp: TGroupBox
+    Left = 8
+    Top = 344
+    Width = 436
+    Height = 50
+    Caption = 'WebHelp'
+    TabOrder = 3
+    object Label10: TLabel
+      Left = 10
+      Top = 21
+      Width = 65
+      Height = 13
+      Caption = 'Output folder'
+    end
+    object deWebHelpOutput: TDirectoryEdit
+      Left = 84
+      Top = 18
+      Width = 342
+      Height = 21
+      Hint = 
+        'Relative to the project folder. Empty - asked on the first build' +
+        '. The folder is replaced on every build.'
+      OnBeforeDialog = deWebHelpOutputBeforeDialog
+      NumGlyphs = 1
+      TabOrder = 0
+      Text = ''
     end
   end
 end

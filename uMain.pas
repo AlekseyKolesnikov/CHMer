@@ -43,7 +43,7 @@ type
     actProjectCreate: TAction;
     actProjectLoad: TAction;
     actProjectSave: TAction;
-    actProjectCompile: TAction;
+    actCompileCHM: TAction;
     actHTMLSave: TAction;
     ilNormal: TImageList;
     ilGrayed: TImageList;
@@ -99,7 +99,7 @@ type
     btnUpdateHTML: TToolButton;
     btnCheckNotUsed: TToolButton;
     tbSeparator3: TToolButton;
-    btnProjectCompile: TToolButton;
+    btnCompileCHM: TToolButton;
     ilPopupDisabled: TImageList;
     memKeyWords: TMemo;
     splVerticalRight: TSplitter;
@@ -160,6 +160,12 @@ type
     btnCtrlSpace: TToolButton;
     btnView: TToolButton;
     actViewCHM: TAction;
+    btnCompileWH: TToolButton;
+    actCompileWH: TAction;
+    pmView: TPopupMenu;
+    miViewCHM: TMenuItem;
+    miViewWebHelp: TMenuItem;
+    actViewWebHelp: TAction;
     procedure FormCreate(Sender: TObject);
     procedure tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
     procedure actProjectLoadExecute(Sender: TObject);
@@ -179,7 +185,7 @@ type
     procedure miLevelUpClick(Sender: TObject);
     procedure miLevelDownClick(Sender: TObject);
     procedure miLevelInsideClick(Sender: TObject);
-    procedure actProjectCompileExecute(Sender: TObject);
+    procedure actCompileCHMExecute(Sender: TObject);
     procedure miPropertiesAddClick(Sender: TObject);
     procedure miPropertiesDeleteClick(Sender: TObject);
     procedure miExpandAllClick(Sender: TObject);
@@ -216,6 +222,8 @@ type
     procedure btnDefaultClick(Sender: TObject);
     procedure btnProjectSettingsClick(Sender: TObject);
     procedure actViewCHMExecute(Sender: TObject);
+    procedure actCompileWHExecute(Sender: TObject);
+    procedure actViewWebHelpExecute(Sender: TObject);
   private
     { Private declarations }
     Project: TProject;
@@ -235,9 +243,11 @@ type
     function GetEditor: String;
     function GetHHC(Request: Boolean = True): String;
     function GetProjectDataList(var aName: string): TStringList;
+    function GetWebHelpDir(Request: Boolean): String;
     procedure InitProjectData(ProjectData: TProjectData);
     procedure LoadProject(const FileName: String);
     procedure PropertiesEditBoolean;
+    procedure PropertiesEditCompiledFile;
     procedure PropertiesEditDefaultTopic;
     procedure PropertiesEditFont;
     procedure PropertiesEditHex;
@@ -270,6 +280,10 @@ const
   sKeyWords = 'Keywords';
 
   sTitle = 'CHMer';
+
+  sCHMFilter = 'Compiled HTML Help (*.chm)|*.chm|All files (*.*)|*.*';
+
+  sWebHelpExe = 'build_webhelp.exe'; // WebHelp\build_webhelp.py compiled by build_webhelp_exe.bat
 
 var
   iSelectedLangCode: Integer;
@@ -549,9 +563,9 @@ begin
   end;
 end;
 
-procedure TfrmMain.actProjectCompileExecute(Sender: TObject);
+procedure TfrmMain.actCompileCHMExecute(Sender: TObject);
 var
-  hhc, S: string;
+  hhc, S, CompiledFile: string;
 begin
   hhc := GetHHC;
 
@@ -562,13 +576,18 @@ begin
 
   actProjectSaveExecute(nil); // forces AddContents on/off
 
+  CompiledFile := TProjectData(tvProjectTree.Items[0].Data).slProject.Values['Compiled file'];
+
+  if CompiledFile <> '' then
+    ForceDirectories(ExtractFileDir(ExpandPath(Project.PrjDir, CompiledFile))); // hhc does not create the output folder
+
   try
-    btnProjectCompile.Down := True;
+    btnCompileCHM.Down := True;
     Screen.Cursor := crAppStart;
     ExecInMemo(hhc + ' "' + Project.ProjectFile + '"', ExtractFileDir(hhc), memInfo, eimShowStdOut or eimShowStdErr);
   finally
     Screen.Cursor := crDefault;
-    btnProjectCompile.Down := False;
+    btnCompileCHM.Down := False;
   end;
 
   S := Trim(memInfo.Lines.Text);
@@ -578,6 +597,44 @@ begin
 
   memInfo.Lines.Clear;
   memInfo.Lines.Add(S);
+end;
+
+procedure TfrmMain.actCompileWHExecute(Sender: TObject);
+var
+  WebHelpExe, OutDir: string;
+  SelectDir: Boolean;
+begin
+  SelectDir := GetKeyState(VK_SHIFT) < 0; // Shift+click selects another output folder
+  WebHelpExe := ExtractFilePath(Application.ExeName) + sWebHelpExe;
+
+  if not FileExists(WebHelpExe) then
+  begin
+    ShowMessage('"' + WebHelpExe + '" not found.');
+    Exit;
+  end;
+
+  OutDir := GetWebHelpDir(SelectDir);
+
+  if OutDir = '' then
+    Exit;
+
+  actProjectSaveExecute(nil); // the WebHelp is built from the project files; also stores a newly selected folder
+
+  if Project.ProjectFile = '' then
+    Exit;
+
+  memInfo.Lines.Clear;
+
+  try
+    btnCompileWH.Down := True;
+    Screen.Cursor := crAppStart;
+    // Without the trailing backslash: \" would be read as a quote inside the argument
+    ExecInMemo('"' + WebHelpExe + '" "' + Project.ProjectFile + '" "' + ExcludeTrailingPathDelimiter(OutDir) + '"',
+      Project.PrjDir, memInfo, eimShowStdOut or eimShowStdErr, False, TEncoding.UTF8);
+  finally
+    Screen.Cursor := crDefault;
+    btnCompileWH.Down := False;
+  end;
 end;
 
 procedure TfrmMain.actProjectCreateExecute(Sender: TObject);
@@ -648,8 +705,10 @@ begin
 
   actHTMLSave.Enabled := seHTML.Modified;
   actProjectSave.Enabled := ProjectOpened;
-  actProjectCompile.Enabled := ProjectOpened;
+  actCompileCHM.Enabled := ProjectOpened;
+  actCompileWH.Enabled := ProjectOpened;
   actViewCHM.Enabled := ProjectOpened;
+  actViewWebHelp.Enabled := ProjectOpened;
   actUpdateHTML.Enabled := ProjectOpened;
   actCheckNotUsed.Enabled := ProjectOpened and (Project.ProjectFile <> '');
   actEditHTML.Enabled := ProjectOpened and Assigned(SelectedObjectData);
@@ -767,8 +826,36 @@ var
   ProjectData: TProjectData;
 begin
   ProjectData := TProjectData(tvProjectTree.Items[0].Data);
-  ShellExecute(0, nil, PWideChar(ExtractFilePath(Project.ProjectFile) + ProjectData.slProject.Values['Compiled file']), nil,
+  ShellExecute(0, nil, PWideChar(ExpandPath(Project.PrjDir, ProjectData.slProject.Values['Compiled file'])), nil,
     PWideChar(ExtractFileDir(Project.ProjectFile)), SW_NORMAL);
+end;
+
+procedure TfrmMain.actViewWebHelpExecute(Sender: TObject);
+var
+  OutDir, Page, PageFile: string;
+  i: Integer;
+begin
+  OutDir := Trim(Project.Settings.Values[sWebHelpOutput]); // not GetWebHelpDir: it asks for a folder when none is set
+
+  if OutDir = '' then
+    Exit;
+
+  if Assigned(SelectedObjectData) then
+    Page := SelectedObjectData.URL
+  else // the project node
+    Page := Trim(TProjectData(tvProjectTree.Items[0].Data).slProject.Values['Default topic']);
+
+  i := Pos('#', Page);
+  if i > 0 then SetLength(Page, i - 1);
+
+  if Page = '' then
+    Exit;
+
+  // The builder writes each topic to the same project-relative path inside the output folder
+  PageFile := IncludeTrailingPathDelimiter(ExpandPath(Project.PrjDir, OutDir)) + Page;
+
+  if FileExists(PageFile) then
+    ShellExecute(0, nil, PWideChar(PageFile), nil, PWideChar(ExtractFileDir(PageFile)), SW_NORMAL);
 end;
 
 function TfrmMain.AddAfter(const Title, FileName: string): TTreeNode;
@@ -1012,6 +1099,9 @@ begin
   frmProjectSettings.edLeftPaneWidth.Value    := Project.LeftPaneWidth;
   frmProjectSettings.cmbDefaultTab.ItemIndex  := Project.DefaultTab;
 
+  frmProjectSettings.BaseDir := Project.PrjDir;
+  frmProjectSettings.deWebHelpOutput.Text := Project.Settings.Values[sWebHelpOutput];
+
   if frmProjectSettings.ShowModal = mrOk then
   begin
     Project.Buttons := 0;
@@ -1072,6 +1162,8 @@ begin
     Project.WindowNav := Project.WindowNav or IfThen(frmProjectSettings.chbShowFavorites.Checked, HHWIN_PROP_TAB_FAVORITES, 0);
     Project.LeftPaneWidth := frmProjectSettings.edLeftPaneWidth.Value;
     Project.DefaultTab := frmProjectSettings.cmbDefaultTab.ItemIndex;
+
+    Project.Settings.Values[sWebHelpOutput] := AnsiDequotedStr(Trim(frmProjectSettings.deWebHelpOutput.Text), '"'); // empty removes it
 
     Project.Modified := True;
   end;
@@ -1391,6 +1483,25 @@ begin
   end
   else
     Result := ProjectData.slProject;
+end;
+
+function TfrmMain.GetWebHelpDir(Request: Boolean): String;
+begin
+  Result := Trim(Project.Settings.Values[sWebHelpOutput]);
+
+  if (Result = '') or Request then
+  begin
+    if not BrowseFolder('WebHelp output folder (replaced on every build)', Project.PrjDir, Result) then
+    begin
+      Result := '';
+      Exit;
+    end;
+
+    Project.Settings.Values[sWebHelpOutput] := Result;
+    Project.Modified := True;
+  end;
+
+  Result := ExpandPath(Project.PrjDir, Result);
 end;
 
 procedure TfrmMain.InitProjectData(ProjectData: TProjectData);
@@ -1742,6 +1853,25 @@ begin
   end;
 end;
 
+procedure TfrmMain.PropertiesEditCompiledFile;
+var
+  value: string;
+  ProjectData: TProjectData;
+begin
+  value := sgProperties.Cells[1, sgProperties.Row];
+
+  if InputFileName(sgProperties.Cells[0, sgProperties.Row], Project.PrjDir, value, sCHMFilter, 'chm') then
+  begin
+    if value = '' then // an empty value would remove the property
+      value := ChangeFileExt(ExtractFileName(Project.ProjectFile), '.chm');
+
+    sgProperties.Cells[1, sgProperties.Row] := value;
+    ProjectData := TProjectData(tvProjectTree.Items[0].Data);
+    ProjectData.slProject.Values['Compiled file'] := value;
+    Project.Modified := True;
+  end;
+end;
+
 procedure TfrmMain.PropertiesEditDefaultTopic;
 var
   ProjectData: TProjectData;
@@ -1995,6 +2125,9 @@ begin
   end
   else
   begin
+    if propertyName = 'compiled file' then
+      PropertiesEditCompiledFile
+    else
     if propertyName = 'default topic' then
       PropertiesEditDefaultTopic
     else

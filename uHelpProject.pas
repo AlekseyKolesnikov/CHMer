@@ -5,6 +5,12 @@ interface
 uses
   Classes, ComCtrls;
 
+const
+  // CHMer settings are stored in the .hhp as comment lines after '; [CHMer]' at the end of [OPTIONS]:
+  // hhc ignores comments, but warns about unknown options and sections
+  sSettingsHeader = '[CHMer]';
+  sWebHelpOutput = 'WebHelp output';
+
   {Buttons
   HHWIN_BUTTON_EXPAND  = $000002; // Expand/contract button (Hide/Show navigation tree)
   HHWIN_BUTTON_BACK    = $000004; // Back button
@@ -47,6 +53,7 @@ type
   public
     PrjDir, ProjectFile, Home, Jump1File, Jump1Name, Jump2File, Jump2Name: String;
     Buttons, WindowNav, DefaultTab, LeftPaneWidth, Top, Left, Width, Height: Integer;
+    Settings: TStringList; // CHMer settings (sWebHelpOutput, ...)
     Modified: Boolean;
 
     constructor Create(FileName: String; ProjectTree: TTreeNodes);
@@ -144,6 +151,7 @@ begin
 
   ProjectItems := ProjectTree;
   ProjectFile := FileName;
+  Settings := TStringList.Create;
   InitProjectProperties;
 
   if FileName = '' then
@@ -206,6 +214,8 @@ begin
         ProjectItems[i].Data := nil;
       end;
   end;
+
+  FreeAndNil(Settings);
 
   inherited;
 end;
@@ -400,6 +410,47 @@ begin
   slParameters.Free;
 end;
 
+// TMemIniFile skips comments, so the settings are read from the file itself
+procedure LoadSettings(FileName: String; slSettings: TStringList);
+var
+  slHHP: TStringList;
+  i, iEqual: Integer;
+  S: string;
+  InSettings: Boolean;
+begin
+  slHHP := TStringList.Create;
+  slHHP.LoadFromFile(FileName);
+  InSettings := False;
+
+  for i := 0 to slHHP.Count - 1 do
+  begin
+    S := Trim(slHHP[i]);
+
+    // the settings block ends at the first line that is not a comment
+    if (S = '') or (S[1] <> ';') then
+    begin
+      if InSettings then
+        Break;
+
+      Continue;
+    end;
+
+    S := Trim(Copy(S, 2, MaxInt));
+
+    if not InSettings then
+      InSettings := SameText(S, sSettingsHeader)
+    else
+    begin
+      iEqual := Pos('=', S);
+
+      if iEqual > 0 then
+        slSettings.AddPair(Trim(Copy(S, 1, iEqual - 1)), Trim(Copy(S, iEqual + 1, MaxInt)));
+    end;
+  end;
+
+  slHHP.Free;
+end;
+
 function TProject.LoadHHP(FileName: String): Boolean;
 var
   ini: TMemIniFile;
@@ -430,6 +481,7 @@ begin
   RootNode.Data := Data;
 
   ini.ReadSectionValues('OPTIONS', Data.slProject);
+  LoadSettings(FileName, Settings);
 
   Data.slProject.Values['Contents file'] := FileHHC;
   Data.slProject.Values['Index file'] := FileHHK;
@@ -585,6 +637,13 @@ begin
   slHHP.Add('[OPTIONS]');
   for i := 0 to ProjectData.slProject.Count - 1 do
     slHHP.Add(ProjectData.slProject.Names[i] + '=' + ProjectData.slProject.ValueFromIndex[i]);
+
+  if Settings.Count > 0 then
+  begin
+    slHHP.Add('; ' + sSettingsHeader);
+    for i := 0 to Settings.Count - 1 do
+      slHHP.Add('; ' + Settings.Names[i] + '=' + Settings.ValueFromIndex[i]);
+  end;
   slHHP.Add('');
 
 

@@ -3,51 +3,75 @@ unit SystemUtils;
 interface
 
 uses
-  Classes, Vcl.StdCtrls;
+  Classes, SysUtils, Vcl.StdCtrls;
 
 const
   eimShowStdOut = 1;
   eimShowStdErrIfErr = 2;
   eimShowStdErr = 4;
 
-function ExecInMemo(CommandLine, Dir: string; Memo: TMemo; Show: Integer; Debug: Boolean = False): Cardinal;
+// Encoding is the encoding of the program's output; nil means the ANSI code page (or the one of a BOM)
+function ExecInMemo(CommandLine, Dir: string; Memo: TMemo; Show: Integer; Debug: Boolean = False;
+  Encoding: TEncoding = nil): Cardinal;
+// A relative Path is resolved against BaseDir (\path against its drive), one with a drive or UNC is only normalized
+function ExpandPath(const BaseDir, Path: String): String;
 function GetFileList(Path: String; Masks: array of String): TStringList;
 function GetLocaleName(Code, CodeType: Cardinal): String;
 function IntegerToHex(Value: Integer): string;
+// Path relative to BaseDir; it stays absolute on another drive
+function RelativePath(const BaseDir, Path: String): String;
 
 
 implementation
 
 uses
-  SysUtils, Windows, Vcl.Forms;
+  Windows, Vcl.Forms;
 
-function ExecInMemo(CommandLine, Dir: string; Memo: TMemo; Show: Integer; Debug: Boolean = False): Cardinal;
+function ExecInMemo(CommandLine, Dir: string; Memo: TMemo; Show: Integer; Debug: Boolean = False;
+  Encoding: TEncoding = nil): Cardinal;
 const
-  BufSize = 4096;
+  // The pipes are read without blocking, so they are polled: a program that fills a pipe waits until it is read
+  PipeSize = 65536;
+  PollTime = 10;
 var
   SA: TSecurityAttributes;
   PI: TProcessInformation;
   SI: TStartupInfo;
   hReadOut, hWriteOut, hReadErr, hWriteErr: NativeUInt;
   dwAvailOut, dwAvailErr: Cardinal;
-  hsBuffOut, hsBuffErr: THandleStream;
-  TempBuf: TStringList;
+  BuffOut, BuffErr: TMemoryStream;
   StrOut, StrErr: TStringList;
   resMsg: Cardinal;
+
+  // Keeps the raw bytes: they are decoded at the end, so a character split between two reads stays intact
+  procedure ReadPipe(hRead: NativeUInt; Buff: TMemoryStream);
+  var
+    dwAvail, dwRead: Cardinal;
+    Chunk: TBytes;
+  begin
+    while PeekNamedPipe(hRead, nil, 0, nil, @dwAvail, nil) and (dwAvail > 0) do
+    begin
+      SetLength(Chunk, dwAvail);
+      if not ReadFile(hRead, Chunk[0], dwAvail, dwRead, nil) or (dwRead = 0) then
+        Break;
+      Buff.WriteBuffer(Chunk[0], dwRead);
+    end;
+  end;
+
 begin
   //Init
   SA.nLength := SizeOf(SECURITY_ATTRIBUTES);
   SA.bInheritHandle := True;
   SA.lpSecurityDescriptor := nil;
 
-  if not CreatePipe(hReadOut, hWriteOut, @SA, 0) then
+  if not CreatePipe(hReadOut, hWriteOut, @SA, PipeSize) then
   begin
     Result := 5;
     Memo.Lines.Add('ERROR: can''t create output pipe!');
     Exit;
   end;
 
-  if not CreatePipe(hReadErr, hWriteErr, @SA, 0) then
+  if not CreatePipe(hReadErr, hWriteErr, @SA, PipeSize) then
   begin
     Result := 6;
     Memo.Lines.Add('ERROR: can''t create error pipe!');
@@ -73,32 +97,25 @@ begin
   //Starting up...
   if CreateProcess(nil, PChar(CommandLine), nil, nil, True, 0, nil, PChar(Dir), SI, PI) then
   begin
-    hsBuffOut := THandleStream.Create(hReadOut);
-    hsBuffErr := THandleStream.Create(hReadErr);
-    TempBuf := TStringList.Create;
+    BuffOut := TMemoryStream.Create;
+    BuffErr := TMemoryStream.Create;
 
-    //Waiting...
-    //WaitForSingleObject(PI.hProcess, INFINITE);
-    //MsgWaitForMultipleObjects(1, PI.hProcess, False, INFINITE, QS_ALLINPUT);
     repeat
-      TempBuf.Clear();
-      if hsBuffOut.Size > 0 then
-        TempBuf.LoadFromStream(hsBuffOut); //moving block to the buffer
-      StrOut.AddStrings(TempBuf);
-
-      TempBuf.Clear();
-      if hsBuffErr.Size > 0 then
-        TempBuf.LoadFromStream(hsBuffErr); //moving block to the buffer
-      StrErr.AddStrings(TempBuf);
+      ReadPipe(hReadOut, BuffOut);
+      ReadPipe(hReadErr, BuffErr);
 
       //Waiting...
-      //WaitForSingleObject(PI.hProcess, INFINITE);
-      resMsg := MsgWaitForMultipleObjects(1, PI.hProcess, False, INFINITE, QS_ALLINPUT);
+      resMsg := MsgWaitForMultipleObjects(1, PI.hProcess, False, PollTime, QS_ALLINPUT);
       //Is pipe empty ?
       PeekNamedPipe(hReadOut, nil, 0, nil, @dwAvailOut, nil);
       PeekNamedPipe(hReadErr, nil, 0, nil, @dwAvailErr, nil);
       Application.ProcessMessages;
-    until (dwAvailOut = 0) and (dwAvailErr = 0) and (resMsg <> WAIT_OBJECT_0 + 1);
+    until (dwAvailOut = 0) and (dwAvailErr = 0) and (resMsg <> WAIT_OBJECT_0 + 1) and (resMsg <> WAIT_TIMEOUT);
+
+    BuffOut.Position := 0;
+    StrOut.LoadFromStream(BuffOut, Encoding);
+    BuffErr.Position := 0;
+    StrErr.LoadFromStream(BuffErr, Encoding);
 
     GetExitCodeProcess(PI.hProcess, Result);
 
@@ -119,9 +136,8 @@ begin
     CloseHandle(PI.hProcess);
     CloseHandle(PI.hThread);
 
-    FreeAndNil(hsBuffOut);
-    FreeAndNil(hsBuffErr);
-    FreeAndNil(TempBuf);
+    FreeAndNil(BuffOut);
+    FreeAndNil(BuffErr);
   end
   else
   begin
@@ -136,6 +152,18 @@ begin
   CloseHandle(hWriteOut);
   CloseHandle(hReadErr);
   CloseHandle(hWriteErr);
+end;
+
+function ExpandPath(const BaseDir, Path: String): String;
+begin
+  if (BaseDir = '') or (ExtractFileDrive(Path) <> '') then
+    Result := Path
+  else if (Path <> '') and (Path[1] = PathDelim) then
+    Result := ExtractFileDrive(BaseDir) + Path // the root of the BaseDir drive, not of the current one
+  else
+    Result := IncludeTrailingPathDelimiter(BaseDir) + Path;
+
+  Result := ExpandFileName(Result); // removes ..\ and .\
 end;
 
 function GetFileList(Path: String; Masks: array of String): TStringList;
@@ -202,6 +230,14 @@ begin
     end;
 
   Result := '0x' + Result;
+end;
+
+function RelativePath(const BaseDir, Path: String): String;
+begin
+  if BaseDir = '' then
+    Result := Path
+  else
+    Result := ExtractRelativePath(IncludeTrailingPathDelimiter(BaseDir), Path); // without the delimiter BaseDir is taken as a file name
 end;
 
 end.

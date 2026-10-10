@@ -57,6 +57,18 @@ object frmEditValue: TfrmEditValue
     TabOrder = 2
     Visible = False
   end
+  object feFileName: TFilenameEdit
+    Left = 72
+    Top = 8
+    Width = 314
+    Height = 21
+    OnBeforeDialog = feFileNameBeforeDialog
+    DialogKind = dkSave
+    Anchors = [akLeft, akTop, akRight]
+    NumGlyphs = 1
+    TabOrder = 3
+    Visible = False
+  end
   object btnOK: TButton
     Left = 230
     Top = 46
@@ -66,7 +78,7 @@ object frmEditValue: TfrmEditValue
     Caption = 'OK'
     Default = True
     ModalResult = 1
-    TabOrder = 3
+    TabOrder = 4
   end
   object btnCancel: TButton
     Left = 311
@@ -77,6 +89,6 @@ object frmEditValue: TfrmEditValue
     Cancel = True
     Caption = 'Cancel'
     ModalResult = 2
-    TabOrder = 4
+    TabOrder = 5
   end
 end
