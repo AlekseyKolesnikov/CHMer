@@ -29,6 +29,26 @@
     };
   }
 
+  // The zoom and the theme are kept both in localStorage and in a cookie: on file:// Firefox gives
+  // each page its own localStorage but shares cookies between all of them, while Chrome shares
+  // localStorage and has no cookies. The script build_webhelp.py adds to the topics reads the theme
+  // the same way, before the topic is drawn
+  const COOKIE = '-' + encodeURIComponent(H.title).replace(/[^\w%-]/g, '_') + '=';
+
+  function stored(name) {
+    const prefix = 'wh-' + name + COOKIE;
+    let c = null;
+    try {
+      c = document.cookie.split('; ').find(function (s) { return s.startsWith(prefix); });
+    } catch (e) { /* cookies unavailable */ }
+    return c ? c.slice(prefix.length) : local.get(name);
+  }
+
+  function store(name, value) {
+    local.set(name, value);
+    try { document.cookie = 'wh-' + name + COOKIE + value + '; path=/; max-age=31536000'; } catch (e) { /* cookies unavailable */ }
+  }
+
   // Paths in the data are relative to the help root; topics may sit in subfolders
   function hrefOf(u) {
     const i = u.indexOf('#');
@@ -136,13 +156,16 @@
 
   // Header
   const toggle = el('button', { class: 'wh-toggle', type: 'button', title: 'Show or hide the sidebar', 'aria-label': 'Sidebar' });
+  const themeButton = el('button', { class: 'wh-theme', type: 'button', 'aria-label': 'Dark theme',
+    onclick: function () { setTheme(theme === 'dark' ? 'light' : 'dark', true); } });
   const header = el('header', { id: 'wh-header' }, [
     toggle,
     el('a', { class: 'wh-title', href: hrefOf(H.home), text: H.title }),
     el('span', { class: 'wh-spacer' }),
     at >= 0 ? navLink(sequence[at - 1], 'wh-prev', 'Previous') : null,
     at >= 0 ? navLink(sequence[at + 1], 'wh-next', 'Next') : null,
-    el('span', { class: 'wh-links' }, H.links.map(function (l) { return el('a', { href: hrefOf(l.u), text: l.t }); }))
+    el('span', { class: 'wh-links' }, H.links.map(function (l) { return el('a', { href: hrefOf(l.u), text: l.t }); })),
+    themeButton
   ]);
 
   function navLink(node, cls, text) {
@@ -150,6 +173,55 @@
       ? el('a', { class: 'wh-nav ' + cls, href: hrefOf(node.u), title: node.t, text: text })
       : el('span', { class: 'wh-nav ' + cls + ' wh-disabled', text: text });
   }
+
+  // Theme: light, or dark when chosen with the button or opened with ?theme=dark (?theme=light opens
+  // the help light). The script build_webhelp.py adds to the topic has already applied it, so the
+  // topic isn't drawn light first; the images are swapped for their dark versions here, before the
+  // script shows them
+  const darkImages = new Map();
+  for (const u in H.dark || {}) darkImages.set(keyOf(hrefOf(u)), hrefOf(H.dark[u]));
+  let theme = null;
+
+  function setTheme(t, save) {
+    if (t !== 'dark') t = 'light';
+    if (save) store('theme', t);
+    if (t === theme) return;
+    theme = t;
+    showTheme(t === 'dark');
+  }
+
+  function showTheme(dark) {
+    if (dark) root.setAttribute('data-wh-theme', 'dark'); else root.removeAttribute('data-wh-theme');
+    themeButton.setAttribute('aria-pressed', String(dark));
+    themeButton.title = dark ? 'Switch to the light theme' : 'Switch to the dark theme';
+    for (const img of document.images) {
+      if (!img.hasAttribute('data-wh-dark')) {
+        const darkSrc = darkImages.get(keyOf(img.src));
+        if (!darkSrc) continue;
+        img.setAttribute('data-wh-light', img.getAttribute('src'));
+        img.setAttribute('data-wh-dark', darkSrc);
+      }
+      const src = img.getAttribute(dark ? 'data-wh-dark' : 'data-wh-light');
+      if (img.getAttribute('src') !== src) img.setAttribute('src', src);
+    }
+  }
+
+  const askedTheme = params.get('theme');
+  if (askedTheme === 'dark' || askedTheme === 'light') {
+    setTheme(askedTheme, true);
+    // Taken out of the address, so that reloading the page after switching the theme keeps the switch
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete('theme');
+      history.replaceState(history.state, '', url.href);
+    } catch (e) { /* not allowed here */ }
+  } else {
+    setTheme(stored('theme'), false);
+  }
+
+  // Printed light: light text is hard to read on white paper
+  window.addEventListener('beforeprint', function () { if (theme === 'dark') showTheme(false); });
+  window.addEventListener('afterprint', function () { if (theme === 'dark') showTheme(true); });
 
   // Sidebar
   const tocPanel = el('div', { class: 'wh-panel wh-toc', id: 'wh-panel-toc', role: 'tabpanel' }, [tocList(H.toc)]);
@@ -341,24 +413,13 @@
   const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
   let zoom = 1;
 
-  // On file:// Firefox gives each page its own localStorage but shares cookies between all of
-  // them, while Chrome shares localStorage and has no cookies, so the zoom is kept in both
-  const ZOOM_COOKIE = 'wh-zoom-' + encodeURIComponent(H.title).replace(/[^\w%-]/g, '_');
-
   function storedZoom() {
-    let c = null;
-    try {
-      c = document.cookie.split('; ').find(function (s) { return s.startsWith(ZOOM_COOKIE + '='); });
-    } catch (e) { /* cookies unavailable */ }
-    return Number(c ? c.slice(ZOOM_COOKIE.length + 1) : local.get('zoom'));
+    return Number(stored('zoom'));
   }
 
   function setZoom(z, save) {
     if (ZOOMS.indexOf(z) < 0) z = 1;
-    if (save) {
-      local.set('zoom', String(z));
-      try { document.cookie = ZOOM_COOKIE + '=' + z + '; path=/; max-age=31536000'; } catch (e) { /* cookies unavailable */ }
-    }
+    if (save) store('zoom', String(z));
     if (z === zoom) return;
     const top = header.isConnected && topicAt();
     zoom = z;
@@ -410,7 +471,8 @@
   });
   window.addEventListener('resize', layout);
 
-  if (location.protocol === 'file:' && CSS.supports('zoom', '2')) {
+  const zooms = location.protocol === 'file:' && CSS.supports('zoom', '2');
+  if (zooms) {
     setZoom(storedZoom(), false);
     window.addEventListener('keydown', function (e) {
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
@@ -436,24 +498,29 @@
         wheel = 0;
       }
     }, { passive: false });
-    // Zooming in one tab zooms the help's other tabs too (Firefox has no event for cookies, so
-    // there a tab catches up when it is shown again); a page brought back from the back/forward
-    // cache missed the zooming done since it was left
-    window.addEventListener('storage', function (e) {
-      if (e.key === KEY + 'zoom') setZoom(storedZoom(), false);
-    });
-    document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) setZoom(storedZoom(), false);
-    });
-    window.addEventListener('pageshow', function (e) {
-      if (e.persisted) setZoom(storedZoom(), false);
-    });
   }
+
+  // Zooming or switching the theme in one tab does it in the help's other tabs too (Firefox has no
+  // event for cookies, so there a tab catches up when it is shown again); a page brought back from
+  // the back/forward cache missed the changes made since it was left
+  function sync() {
+    if (zooms) setZoom(storedZoom(), false);
+    setTheme(stored('theme') || theme, false);
+  }
+  window.addEventListener('storage', function (e) {
+    if (e.key === KEY + 'zoom' || e.key === KEY + 'theme') sync();
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) sync();
+  });
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) sync();
+  });
   layout();
 
   document.body.prepend(header, side);
-  const stored = session.get('tab');
-  selectTab(highlight ? 'search' : tabs.some(function (t) { return t.id === stored; }) ? stored : 'toc', false);
+  const storedTab = session.get('tab');
+  selectTab(highlight ? 'search' : tabs.some(function (t) { return t.id === storedTab; }) ? storedTab : 'toc', false);
 
   // Keep the sidebar where it was, then make sure this page's entry is visible
   const scroll = (session.get('scroll') || '').split(':');

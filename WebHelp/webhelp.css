@@ -13,6 +13,46 @@
   --wh-hover: #e5ebf2;
   --wh-current: #d6e4f5;
   --wh-mark: #fff0a0;
+  --wh-shadow: rgba(0, 0, 0, 0.2);
+}
+
+/* Dark theme: set on <html> by the script injected into every topic, before the topic is drawn,
+   and by the theme button. A topic's stylesheet changes its own colors for it with
+   html[data-wh-theme="dark"] selectors */
+
+html[data-wh-theme="dark"] {
+  color-scheme: dark;
+  --wh-header-bg: #172a42;
+  --wh-header-fg: #e6edf3;
+  --wh-side-bg: #181b20;
+  --wh-border: #363c45;
+  --wh-text: #d4d9df;
+  --wh-muted: #8f98a3;
+  --wh-accent: #6cb6ff;
+  --wh-hover: #262c34;
+  --wh-current: #1f3a5c;
+  --wh-mark: #725b00;
+  --wh-shadow: rgba(0, 0, 0, 0.6);
+}
+
+/* The topic's colors in the dark theme where its stylesheet sets none: in :where() these rules have
+   no specificity, so any rule of the topic wins */
+:where(html[data-wh-theme="dark"] body) {
+  background-color: #1f2329;
+  color: #d4d9df;
+}
+
+:where(html[data-wh-theme="dark"] a:link) {
+  color: #6cb6ff;
+}
+
+:where(html[data-wh-theme="dark"] a:visited) {
+  color: #c4a5ff;
+}
+
+/* Until webhelp.js has swapped the images for their dark versions */
+html.wh-theme-pending img {
+  visibility: hidden;
 }
 
 html {
@@ -93,7 +133,8 @@ mark.wh-hl {
   flex: 1;
 }
 
-.wh-toggle {
+.wh-toggle,
+.wh-theme {
   flex: none;
   width: 36px;
   height: 32px;
@@ -110,8 +151,26 @@ mark.wh-hl {
   content: "\2630";
 }
 
-.wh-toggle:hover {
+.wh-toggle:hover,
+.wh-theme:hover {
   background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* The theme the button switches to: a moon, a sun in the dark theme */
+.wh-theme::before {
+  content: "";
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+html[data-wh-theme="dark"] .wh-theme::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'/%3E%3C/svg%3E");
 }
 
 /* Sidebar */
@@ -327,7 +386,7 @@ li.wh-open > .wh-row > button.wh-twisty::before {
 
   html.wh-narrow #wh-side {
     width: min(var(--wh-side-width), 85%);
-    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.2);
+    box-shadow: 4px 0 16px var(--wh-shadow);
   }
 
   html.wh-narrow #wh-header .wh-links {

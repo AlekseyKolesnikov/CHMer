@@ -1,10 +1,10 @@
-CHMer 1.2.1
+CHMer 1.2.2
 Copyright (C) 2019-2026 by Alexey Kolesnikov.
 Email: ak@blu-disc.net
 Website: https://github.com/AlekseyKolesnikov/CHMer
 
 
-A simple CHM creation tool.
+A simple CHM and WebHelp creation tool.
 
 Requires:
   * Microsoft HTML Help Workshop (https://blu-disc.net/download/htmlhelp.exe) - for CHM
@@ -21,6 +21,9 @@ Features:
   * Simple validation: checks for unused HTMLs and missed files.
   * Ctrl+Space in the HTML editor opens the context menu for inserting a tag/symbol.
   * Compile WebHelp (Ctrl+F9) - an HTML version of the help with contents, index and search that works from a local folder or a web server. The output folder is set in Project settings (relative to the project folder); when it is empty, the build asks for it, and Shift+click the button selects another one. The folder must be empty or contain a previous WebHelp: it is replaced on every build. The tab icon (.ico, .png, .svg or .gif, also set in Project settings) is shown by browsers in the page tab, like a site's favicon; topics that link their own icon keep it.
+  * WebHelp dark theme - the help opens in the light theme; the button at the top right switches between light and dark, and the choice is remembered. TOPIC.htm?theme=dark (or ?theme=light, also index.html?theme=dark) opens the help in that theme, so an application can open it in its own theme; the reader can still switch. Note that opening a local file with ShellExecute drops ?theme=... and #anchor: start the browser with the file:/// URL, or open a temporary .html that goes there with location.replace("file:///...").
+    Dark images: FOLDER\dark\NAME (the same file name) is the dark version of the image FOLDER\NAME. It is shown in the dark theme, the regular image otherwise; the CHM doesn't include it. A dark image without a regular one is reported, as it is most likely misnamed.
+    Colors set by the topics' own stylesheet are changed for the dark theme with html[data-wh-theme="dark"] rules, e.g. html[data-wh-theme="dark"] .code { background-color: #2D333B; } - the CHM ignores them. Inline colors (style="color: black") can't be changed this way, use classes instead.
   * CHMer settings, like the WebHelp output folder, are stored in the .hhp as comment lines after "; [CHMer]", so HTML Help Workshop ignores them.
 
 Building build_webhelp.exe:

@@ -7,7 +7,7 @@ the .hhp, so a topic opens as OUTPUT_FOLDER\<path>, the same name it has inside 
 Each topic gets a stylesheet and two scripts injected before </head>. They add a header and
 a Contents / Index / Search sidebar built from the project's .hhc and .hhk:
 
-  <out>\webhelp\data.js     title, header links, contents tree and keyword index
+  <out>\webhelp\data.js     title, header links, contents tree, keyword index and dark images
   <out>\webhelp\search.js   plain text of every topic, loaded when the Search tab opens
   <out>\webhelp\webhelp.js, webhelp.css   the frame itself, copied from this script's folder
                                           (packed into build_webhelp.exe by build_webhelp_exe.bat)
@@ -17,6 +17,12 @@ a Contents / Index / Search sidebar built from the project's .hhc and .hhk:
 Files the topics reference (images, stylesheets and what those reference) are copied too.
 The data is loaded with <script> tags, not fetch(), because the help is meant to work from
 file://, where browsers block fetch().
+
+The help opens in the light theme; the header has a button for the dark one, and TOPIC.htm?theme=dark
+(or light) opens it in that theme. A small inline script, injected with the others, applies the
+theme before the topic is drawn. An image FOLDER\NAME shown by a topic may have a dark version
+FOLDER\dark\NAME: it is copied too and shown instead in the dark theme. The topic's own colors can be
+changed for the dark theme in its stylesheet with html[data-wh-theme="dark"] selectors.
 
 Only [FILES] decides which topics are published: links and contents or index entries that
 point to other topics are reported as warnings. The project folder is never modified.
@@ -41,6 +47,7 @@ ASSET_DIR = 'webhelp'
 ASSETS = ('webhelp.js', 'webhelp.css')
 TOPIC_EXT = ('.htm', '.html')
 ICON_EXT = ('.ico', '.png', '.svg', '.gif')
+DARK_DIR = 'dark'  # FOLDER\dark\NAME is the dark version of the image FOLDER\NAME
 # Text that is not UTF-8 was written by HTML Help Workshop or CHMer in the Windows ANSI code page,
 # which hhc.exe needs for the contents and index files
 ANSI = 'mbcs' if sys.platform == 'win32' else 'latin-1'
@@ -227,6 +234,7 @@ class TopicParser(HTMLParser):
         self.title = []
         self.text = []
         self.refs = []
+        self.images = set()  # the refs that are <img> sources
         self.ids = set()
         self.skip = 0
         self.part = None
@@ -235,6 +243,8 @@ class TopicParser(HTMLParser):
         for name, value in attrs:
             if name in ('href', 'src') and value:
                 self.refs.append(value)
+                if tag == 'img' and name == 'src':
+                    self.images.add(value)
             elif name == 'id' or (name == 'name' and tag == 'a'):
                 self.ids.add(value)
         if tag in ('script', 'style'):
@@ -271,6 +281,7 @@ class Topic:
         self.title = ' '.join(''.join(parser.title).split())
         self.text = ' '.join(''.join(parser.text).split())
         self.refs = parser.refs
+        self.images = parser.images
         self.ids = parser.ids
 
 
@@ -279,10 +290,40 @@ HEAD_END = re.compile(rb'</head\s*>', re.I)
 ICON_LINK = re.compile(rb'<link\b[^>]*\brel\s*=\s*["\']?(shortcut\s+)?icon\b(?!-)', re.I)
 
 
-def inject(data, prefix, icon=None):
+# Applies the theme before the topic is drawn, so that the dark theme doesn't flash light on every
+# page: ?theme=dark or light in the URL, otherwise the theme webhelp.js saved, in a cookie or in
+# localStorage as it saves the zoom (the names must match webhelp.js). The images stay hidden until
+# webhelp.js, which runs before DOMContentLoaded, has swapped them for their dark versions.
+# Joined into one line, so only /* */ comments.
+THEME_SCRIPT = ' '.join(line.strip() for line in r'''
+(function (title) {
+  try {
+    var root = document.documentElement;
+    var theme = new URLSearchParams(location.search).get('theme');
+    if (theme !== 'dark' && theme !== 'light') {
+      var cookie = document.cookie.match(new RegExp('(?:^|; )wh-theme-' + encodeURIComponent(title).replace(/[^\w%-]/g, '_') + '=(\\w+)'));
+      theme = cookie ? cookie[1] : localStorage.getItem('wh:' + title + ':theme');
+    }
+    if (theme === 'dark') {
+      root.setAttribute('data-wh-theme', 'dark');
+      root.classList.add('wh-theme-pending');
+      document.addEventListener('DOMContentLoaded', function () { root.classList.remove('wh-theme-pending'); });
+    }
+  } catch (e) { /* storage unavailable */ }
+})(TITLE);
+'''.strip().splitlines())
+
+
+def theme_script(title):
+    """THEME_SCRIPT for the help with this title, as an ASCII <script> element."""
+    title = json.dumps(title, ensure_ascii=True).replace('<', '\\u003c')
+    return ('<script type="text/javascript">' + THEME_SCRIPT.replace('TITLE', title) + '</script>').encode('ascii')
+
+
+def inject(data, prefix, script, icon=None):
     """Adds the WebHelp stylesheet and scripts before </head>, and a link to the icon when
     the topic has no icon of its own; prefix leads from the topic's folder back to the
-    WebHelp root, icon is the icon's name in the WebHelp folder."""
+    WebHelp root, script is the theme_script(), icon is the icon's name in the WebHelp folder."""
     m = HEAD_END.search(data)
     if not m:
         return None
@@ -290,6 +331,7 @@ def inject(data, prefix, icon=None):
     assets = (prefix + ASSET_DIR + '/').encode('ascii')
     lines = [
         b'<link type="text/css" href="' + assets + b'webhelp.css" rel="stylesheet" />',
+        script,
         b'<script type="text/javascript" src="' + assets + b'data.js" defer="defer"></script>',
         b'<script type="text/javascript" src="' + assets + b'webhelp.js" defer="defer"></script>',
     ]
@@ -375,11 +417,14 @@ def build(project, out_dir, icon=None):
     # Links in the topics, and the files the copied stylesheets reference
     pending = [rel for rel in resources.values()]
     anchors = []
+    images = set()  # the images the topics show
     for topic in list(topics.values()):
         for ref in topic.refs:
             target = reference(ref, posixpath.dirname(topic.rel), topic.rel)
             if target and target[1]:
                 anchors.append((topic.rel, target[0].lower(), target[1]))
+            if target and ref in topic.images:
+                images.add(target[0])
     while pending:
         rel = pending.pop()
         if rel.lower().endswith('.css'):
@@ -389,6 +434,24 @@ def build(project, out_dir, icon=None):
         target = topics.get(key)
         if target and anchor not in target.ids:
             problem(f'#{anchor} not found in {target.rel}', where)
+
+    # Dark versions of the images, shown instead in the dark theme
+    dark = {}  # image path -> path of its dark version
+    for rel in sorted(images, key=str.lower):
+        folder, name = posixpath.split(rel)
+        actual = files.resolve(posixpath.join(folder, DARK_DIR, name))
+        if actual:
+            dark[rel] = actual
+            resources.setdefault(actual.lower(), actual)
+    # A dark image is found by its name, so one without a regular image is most likely misnamed
+    for folder in sorted({posixpath.dirname(rel) for rel in images}, key=str.lower):
+        names = files.listing(root / folder)
+        dark_dir = names.get(DARK_DIR)
+        if not dark_dir:
+            continue
+        for name in sorted(files.listing(root / folder / dark_dir).values(), key=str.lower):
+            if name.lower() not in names and (root / folder / dark_dir / name).is_file():
+                warn(f'dark image {posixpath.join(folder, dark_dir, name)} has no regular image {posixpath.join(folder, name)}')
 
     def canonical(url, base_dir, where):
         """A contents/index/window URL as the on-disk path of its target, plus the anchor."""
@@ -466,8 +529,9 @@ def build(project, out_dir, icon=None):
 
     # Output
     clean_output(out_dir, root)
+    script = theme_script(title)
     for topic in topics.values():
-        data = inject(topic.data, '../' * topic.rel.count('/'), icon_name)
+        data = inject(topic.data, '../' * topic.rel.count('/'), script, icon_name)
         if data is None:
             warn(f'{topic.rel}: no </head>, copied without the WebHelp frame')
             data = topic.data
@@ -485,6 +549,7 @@ def build(project, out_dir, icon=None):
         'links': links,
         'toc': toc,
         'index': sorted(index.values(), key=lambda e: e['k'].casefold()),
+        'dark': dark,
     }
     docs = [{'u': t.rel, 't': toc_titles.get(t.rel.lower()) or t.title or t.rel, 'x': t.text}
             for t in sorted(topics.values(), key=lambda t: t.rel.lower())]
@@ -493,7 +558,7 @@ def build(project, out_dir, icon=None):
     if 'index.html' not in topics and 'index.html' not in resources:
         write(out_dir / 'index.html', index_page(title, default, icon_name))
 
-    print(f'  {len(topics)} topics, {len(resources)} other files')
+    print(f'  {len(topics)} topics, {len(resources)} other files' + (f', {len(dark)} of them dark images' if dark else ''))
 
 
 def js_assign(name, value):
@@ -505,7 +570,14 @@ def index_page(title, default, icon_name=None):
     path, sep, anchor = default.partition('#')
     url = quote(path) + sep + anchor
     icon = f'  <link rel="icon" href="{ASSET_DIR}/{icon_name}" />\r\n' if icon_name else ''
+
+    def js(s):
+        return json.dumps(s).replace('<', '\\u003c')
+
+    # The script passes ?theme=... on to the topic; the refresh is for browsers without scripts
     return (f'<!DOCTYPE html>\r\n<html>\r\n<head>\r\n  <meta charset="utf-8" />\r\n  <title>{title}</title>\r\n{icon}'
+            f'  <script type="text/javascript">location.replace({js(quote(path))} + location.search + '
+            f'({js(sep + anchor)} || location.hash));</script>\r\n'
             f'  <meta http-equiv="refresh" content="0; url={url}" />\r\n</head>\r\n'
             f'<body>\r\n  <p><a href="{url}">{title}</a></p>\r\n</body>\r\n</html>\r\n').encode('utf-8')
 
