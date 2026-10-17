@@ -151,12 +151,13 @@ object frmMain: TfrmMain
   ShowHint = True
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
+  OnDestroy = FormDestroy
   OnResize = FormResize
   OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 13
   object splVertical: TSplitter
-    Left = 325
+    Left = 340
     Top = 0
     Height = 661
     OnMoved = splVerticalRightMoved
@@ -167,7 +168,7 @@ object frmMain: TfrmMain
   object pnLeft: TPanel
     Left = 0
     Top = 0
-    Width = 325
+    Width = 340
     Height = 661
     Align = alLeft
     BevelOuter = bvNone
@@ -175,7 +176,7 @@ object frmMain: TfrmMain
     object splHorizontalLeft: TSplitter
       Left = 0
       Top = 404
-      Width = 325
+      Width = 340
       Height = 3
       Cursor = crVSplit
       Align = alBottom
@@ -186,16 +187,17 @@ object frmMain: TfrmMain
     object pnProperties: TPanel
       Left = 0
       Top = 407
-      Width = 325
+      Width = 340
       Height = 254
       Align = alBottom
       BevelOuter = bvNone
       TabOrder = 1
+      ExplicitWidth = 325
       object sgProperties: TStringGrid
         AlignWithMargins = True
         Left = 2
         Top = 0
-        Width = 323
+        Width = 338
         Height = 252
         Hint = 'Double-click to edit'
         Margins.Left = 2
@@ -211,6 +213,7 @@ object frmMain: TfrmMain
         PopupMenu = pmProperties
         TabOrder = 0
         OnDblClick = sgPropertiesDblClick
+        ExplicitWidth = 323
         ColWidths = (
           137
           140)
@@ -222,17 +225,18 @@ object frmMain: TfrmMain
     object pnProjectTree: TPanel
       Left = 0
       Top = 38
-      Width = 325
+      Width = 340
       Height = 366
       Align = alClient
       BevelOuter = bvNone
       TabOrder = 2
       ExplicitTop = 35
+      ExplicitWidth = 325
       ExplicitHeight = 369
       object tvProjectTree: TTreeView
         Left = 27
         Top = 0
-        Width = 298
+        Width = 313
         Height = 366
         Align = alClient
         HideSelection = False
@@ -243,6 +247,7 @@ object frmMain: TfrmMain
         TabOrder = 0
         OnChange = tvProjectTreeChange
         OnDeletion = tvProjectTreeDeletion
+        ExplicitWidth = 298
         ExplicitHeight = 369
       end
       object pnLeftToolbar: TPanel
@@ -420,7 +425,7 @@ object frmMain: TfrmMain
       AlignWithMargins = True
       Left = 2
       Top = 4
-      Width = 323
+      Width = 338
       Margins.Left = 2
       Margins.Top = 4
       Margins.Right = 0
@@ -431,6 +436,8 @@ object frmMain: TfrmMain
       DisabledImages = ilGrayed
       Images = ilNormal
       TabOrder = 0
+      ExplicitTop = 5
+      ExplicitWidth = 348
       object btnProjectCreate: TToolButton
         Left = 0
         Top = 0
@@ -440,23 +447,25 @@ object frmMain: TfrmMain
         Left = 32
         Top = 0
         Action = actProjectLoad
+        DropdownMenu = pmRecent
+        Style = tbsDropDown
       end
       object btnProjectSave: TToolButton
-        Left = 64
+        Left = 79
         Top = 0
         Action = actProjectSave
         DropdownMenu = pmSave
         Style = tbsDropDown
       end
       object tbSeparator1: TToolButton
-        Left = 111
+        Left = 126
         Top = 0
         Width = 6
         ImageIndex = 4
         Style = tbsSeparator
       end
       object btnSettings: TToolButton
-        Left = 117
+        Left = 132
         Top = 0
         Hint = 'Settings'
         Caption = 'Settings'
@@ -464,41 +473,41 @@ object frmMain: TfrmMain
         OnClick = btnSettingsClick
       end
       object tbSeparator2: TToolButton
-        Left = 149
+        Left = 164
         Top = 0
         Width = 6
         ImageIndex = 4
         Style = tbsSeparator
       end
       object btnUpdateHTML: TToolButton
-        Left = 155
+        Left = 170
         Top = 0
         Action = actUpdateHTML
       end
       object btnCheckNotUsed: TToolButton
-        Left = 187
+        Left = 202
         Top = 0
         Action = actCheckNotUsed
       end
       object tbSeparator3: TToolButton
-        Left = 219
+        Left = 234
         Top = 0
         Width = 6
         ImageIndex = 3
         Style = tbsSeparator
       end
       object btnCompileCHM: TToolButton
-        Left = 225
+        Left = 240
         Top = 0
         Action = actCompileCHM
       end
       object btnCompileWH: TToolButton
-        Left = 257
+        Left = 272
         Top = 0
         Action = actCompileWH
       end
       object btnView: TToolButton
-        Left = 289
+        Left = 304
         Top = 0
         Hint = 'View compiled'
         DropdownMenu = pmView
@@ -507,17 +516,19 @@ object frmMain: TfrmMain
     end
   end
   object pnRight: TPanel
-    Left = 328
+    Left = 343
     Top = 0
-    Width = 856
+    Width = 841
     Height = 661
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 1
+    ExplicitLeft = 328
+    ExplicitWidth = 856
     object splHorizontalRight: TSplitter
       Left = 0
       Top = 498
-      Width = 856
+      Width = 841
       Height = 3
       Cursor = crVSplit
       Align = alBottom
@@ -527,16 +538,17 @@ object frmMain: TfrmMain
     object pnInfo: TPanel
       Left = 0
       Top = 501
-      Width = 856
+      Width = 841
       Height = 160
       Align = alBottom
       BevelOuter = bvNone
       TabOrder = 1
+      ExplicitWidth = 856
       object memInfo: TMemo
         AlignWithMargins = True
         Left = 0
         Top = 0
-        Width = 854
+        Width = 839
         Height = 158
         Margins.Left = 0
         Margins.Top = 0
@@ -557,21 +569,23 @@ object frmMain: TfrmMain
         ScrollBars = ssBoth
         TabOrder = 0
         WordWrap = False
+        ExplicitWidth = 854
       end
     end
     object pnData: TPanel
       Left = 0
       Top = 0
-      Width = 856
+      Width = 841
       Height = 498
       Align = alClient
       BevelOuter = bvNone
       TabOrder = 0
+      ExplicitWidth = 856
       DesignSize = (
-        856
+        841
         498)
       object splVerticalRight: TSplitter
-        Left = 647
+        Left = 632
         Top = 0
         Height = 498
         Align = alRight
@@ -590,7 +604,7 @@ object frmMain: TfrmMain
         AlignWithMargins = True
         Left = 0
         Top = 18
-        Width = 647
+        Width = 632
         Height = 480
         Margins.Left = 0
         Margins.Top = 18
@@ -599,12 +613,14 @@ object frmMain: TfrmMain
         ActivePage = tsHTML
         Align = alClient
         TabOrder = 0
+        ExplicitWidth = 647
         object tsPreview: TTabSheet
           Caption = 'Preview'
+          ExplicitWidth = 639
           object wbBrowser: TWebBrowser
             Left = 0
             Top = 0
-            Width = 639
+            Width = 624
             Height = 452
             Align = alClient
             TabOrder = 0
@@ -614,7 +630,7 @@ object frmMain: TfrmMain
             ExplicitWidth = 659
             ExplicitHeight = 456
             ControlData = {
-              4C0000000B420000B72E00000000000000000000000000000000000000000000
+              4C0000007E400000B72E00000000000000000000000000000000000000000000
               000000004C000000000000000000000001000000E0D057007335CF11AE690800
               2B2E126208000000000000004C0000000114020000000000C000000000000046
               8000000000000000000000000000000000000000000000000000000000000000
@@ -624,10 +640,11 @@ object frmMain: TfrmMain
         object tsHTML: TTabSheet
           Caption = 'HTML'
           ImageIndex = 1
+          ExplicitWidth = 639
           object seHTML: TSynEdit
             Left = 0
             Top = 0
-            Width = 639
+            Width = 624
             Height = 452
             Align = alClient
             Font.Charset = DEFAULT_CHARSET
@@ -659,12 +676,13 @@ object frmMain: TfrmMain
             TabWidth = 2
             WantTabs = True
             FontSmoothing = fsmNone
+            ExplicitWidth = 639
           end
         end
       end
       object memKeyWords: TMemo
         AlignWithMargins = True
-        Left = 650
+        Left = 635
         Top = 38
         Width = 206
         Height = 460
@@ -676,9 +694,10 @@ object frmMain: TfrmMain
         ScrollBars = ssBoth
         TabOrder = 1
         OnChange = memKeyWordsChange
+        ExplicitLeft = 650
       end
       object cmbFindType: TComboBox
-        Left = 317
+        Left = 302
         Top = 9
         Width = 156
         Height = 21
@@ -693,15 +712,17 @@ object frmMain: TfrmMain
           'Find file by file name'
           'Find file by text'
           'Find file by text (any case)')
+        ExplicitLeft = 317
       end
       object edFindText: TEdit
-        Left = 475
+        Left = 460
         Top = 9
         Width = 170
         Height = 21
         Anchors = [akTop, akRight]
         TabOrder = 3
         TextHint = 'Search'
+        ExplicitLeft = 475
       end
       object pnHTMLTop: TPanel
         Left = 98
@@ -2523,7 +2544,7 @@ object frmMain: TfrmMain
       OnExecute = miDeleteClick
     end
     object actCheckNotUsed: TAction
-      Caption = 'Check not used HTMLs'
+      Caption = 'Validate project'
       Hint = 'Validate the project'
       ImageIndex = 5
       OnExecute = actCheckNotUsedExecute
@@ -6175,5 +6196,11 @@ object frmMain: TfrmMain
     object miViewWebHelp: TMenuItem
       Action = actViewWebHelp
     end
+  end
+  object pmRecent: TPopupMenu
+    AutoHotkeys = maManual
+    OnPopup = pmRecentPopup
+    Left = 104
+    Top = 270
   end
 end

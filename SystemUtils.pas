@@ -10,14 +10,20 @@ const
   eimShowStdErrIfErr = 2;
   eimShowStdErr = 4;
 
+// Bytes as UTF-8, or in the ANSI code page when they are not valid UTF-8
+function DecodeText(const Bytes: TBytes; Index, Count: Integer): String;
 // Encoding is the encoding of the program's output; nil means the ANSI code page (or the one of a BOM)
 function ExecInMemo(CommandLine, Dir: string; Memo: TMemo; Show: Integer; Debug: Boolean = False;
   Encoding: TEncoding = nil): Cardinal;
 // A relative Path is resolved against BaseDir (\path against its drive), one with a drive or UNC is only normalized
 function ExpandPath(const BaseDir, Path: String): String;
 function GetFileList(Path: String; Masks: array of String): TStringList;
+// Full names of the files under Dir and its subfolders with one of Exts ('.png'), except the ones under ExcludeDirs
+function GetFileTree(const Dir: String; const Exts, ExcludeDirs: array of String): TStringList;
 function GetLocaleName(Code, CodeType: Cardinal): String;
 function IntegerToHex(Value: Integer): string;
+// The text of a file: in the encoding of its BOM, otherwise as DecodeText reads it
+function ReadTextFile(const FileName: String): String;
 // Path relative to BaseDir; it stays absolute on another drive
 function RelativePath(const BaseDir, Path: String): String;
 
@@ -25,7 +31,23 @@ function RelativePath(const BaseDir, Path: String): String;
 implementation
 
 uses
-  Windows, Vcl.Forms;
+  Windows, Vcl.Forms, System.IOUtils, StrUtils;
+
+function DecodeText(const Bytes: TBytes; Index, Count: Integer): String;
+begin
+  if Count <= 0 then
+    Exit('');
+
+  try
+    Result := TEncoding.UTF8.GetString(Bytes, Index, Count);
+  except
+    on EEncodingError do
+      Result := '';
+  end;
+
+  if Result = '' then
+    Result := TEncoding.ANSI.GetString(Bytes, Index, Count);
+end;
 
 function ExecInMemo(CommandLine, Dir: string; Memo: TMemo; Show: Integer; Debug: Boolean = False;
   Encoding: TEncoding = nil): Cardinal;
@@ -186,7 +208,7 @@ begin
     end;
 
     repeat
-      if (FindRec.Attr <> faDirectory) then
+      if FindRec.Attr and faDirectory = 0 then
         Result.Add(FindRec.Name);
     until FindNext(FindRec) <> 0;
 
@@ -194,6 +216,32 @@ begin
   end;
 
   Result.Sort;
+end;
+
+function GetFileTree(const Dir: String; const Exts, ExcludeDirs: array of String): TStringList;
+var
+  FileName: String;
+  i: Integer;
+  Excluded: Boolean;
+begin
+  Result := TStringList.Create;
+  Result.Sorted := True;
+  Result.Duplicates := dupIgnore;
+
+  for FileName in TDirectory.GetFiles(Dir, '*', TSearchOption.soAllDirectories) do
+  begin
+    if not MatchText(ExtractFileExt(FileName), Exts) then
+      Continue;
+
+    Excluded := False;
+
+    for i := 0 to Length(ExcludeDirs) - 1 do
+      if (ExcludeDirs[i] <> '') and StartsText(IncludeTrailingPathDelimiter(ExcludeDirs[i]), ExpandFileName(FileName)) then
+        Excluded := True;
+
+    if not Excluded then
+      Result.Add(ExpandFileName(FileName));
+  end;
 end;
 
 function GetLocaleName(Code, CodeType: Cardinal): String;
@@ -230,6 +278,24 @@ begin
     end;
 
   Result := '0x' + Result;
+end;
+
+function ReadTextFile(const FileName: String): String;
+var
+  Bytes: TBytes;
+  Size: Integer;
+begin
+  Bytes := TFile.ReadAllBytes(FileName);
+  Size := Length(Bytes);
+
+  if (Size >= 2) and (Bytes[0] = $FF) and (Bytes[1] = $FE) then
+    Result := TEncoding.Unicode.GetString(Bytes, 2, Size - 2)
+  else if (Size >= 2) and (Bytes[0] = $FE) and (Bytes[1] = $FF) then
+    Result := TEncoding.BigEndianUnicode.GetString(Bytes, 2, Size - 2)
+  else if (Size >= 3) and (Bytes[0] = $EF) and (Bytes[1] = $BB) and (Bytes[2] = $BF) then
+    Result := DecodeText(Bytes, 3, Size - 3)
+  else
+    Result := DecodeText(Bytes, 0, Size);
 end;
 
 function RelativePath(const BaseDir, Path: String): String;

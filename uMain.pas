@@ -166,6 +166,7 @@ type
     miViewCHM: TMenuItem;
     miViewWebHelp: TMenuItem;
     actViewWebHelp: TAction;
+    pmRecent: TPopupMenu;
     procedure FormCreate(Sender: TObject);
     procedure tvProjectTreeChange(Sender: TObject; Node: TTreeNode);
     procedure actProjectLoadExecute(Sender: TObject);
@@ -224,20 +225,26 @@ type
     procedure actViewCHMExecute(Sender: TObject);
     procedure actCompileWHExecute(Sender: TObject);
     procedure actViewWebHelpExecute(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure pmRecentPopup(Sender: TObject);
   private
     { Private declarations }
     Project: TProject;
     SelectedObjectData: TObjectData;
     CurFileAge: TDateTime;
     DoNotNavigate: Boolean;
+    slRecent: TStringList;
 
     function AddAfter(const Title, FileName: string): TTreeNode;
     function AddBefore(const Title, FileName: string): TTreeNode;
     function AddChild(const Title, FileName: string): TTreeNode;
     procedure AddFiles(AddFile: TAddFile);
     procedure AddHTMLTag(FileName: string; WithText: Boolean; TagLeft, TagMiddle, TagRight: String);
+    procedure AddInfo(const Kind, Text: String);
+    procedure AddRecent(const FileName: String);
     function AddObject(const Title, FileName: string): TObjectData;
     function CloseProject: Boolean;
+    procedure CollectRefs(Used: TStringList);
     function GetAddContents: Boolean;
     function GetAddIfEmpty: Boolean;
     function GetEditor: String;
@@ -246,6 +253,9 @@ type
     function GetWebHelpDir(Request: Boolean): String;
     procedure InitProjectData(ProjectData: TProjectData);
     procedure LoadProject(const FileName: String);
+    procedure LoadRecent;
+    procedure miRecentClearClick(Sender: TObject);
+    procedure miRecentClick(Sender: TObject);
     procedure PropertiesEditBoolean;
     procedure PropertiesEditCompiledFile;
     procedure PropertiesEditDefaultTopic;
@@ -256,10 +266,11 @@ type
     procedure PropertiesEditName;
     procedure PropertiesEditRootName;
     procedure PropertiesEditURL;
+    procedure SaveRecent;
     procedure SaveSettingsHHC(hhc: String);
     procedure SelectTreeItemByUrl(URL: String);
-    procedure ValidateSrcHref;
-    procedure ValidateNotUsedHTMLs;
+    procedure ValidateNotUsedHTMLs(Used: TStringList; const OutDir: String);
+    procedure ValidateNotUsedImages(Used: TStringList; const OutDir: String);
   public
     { Public declarations }
   end;
@@ -284,6 +295,9 @@ const
   sCHMFilter = 'Compiled HTML Help (*.chm)|*.chm|All files (*.*)|*.*';
 
   sWebHelpExe = 'build_webhelp.exe'; // WebHelp\build_webhelp.py compiled by build_webhelp_exe.bat
+
+  sRecentKey = 'Recent';
+  MaxRecent = 10;
 
 var
   iSelectedLangCode: Integer;
@@ -369,10 +383,44 @@ begin
 end;
 
 procedure TfrmMain.actCheckNotUsedExecute(Sender: TObject);
+var
+  Used: TStringList;
+  OutDir: String;
 begin
   memInfo.Lines.Clear;
-  ValidateNotUsedHTMLs;
-  ValidateSrcHref;
+
+  if not Assigned(Project) or (tvProjectTree.Items.Count = 0) then
+    Exit;
+
+  if Project.PrjDir = '' then
+  begin
+    memInfo.Lines.Add('Save the project first: the files are found relative to its folder.');
+    Exit;
+  end;
+
+  // The WebHelp output has copies of the project files
+  OutDir := Trim(Project.Settings.Values[sWebHelpOutput]);
+  if OutDir <> '' then
+    OutDir := ExpandPath(Project.PrjDir, OutDir);
+
+  Used := TStringList.Create;
+  Used.Sorted := True; // ignores case, as Windows does
+  Used.Duplicates := dupIgnore;
+  Screen.Cursor := crHourGlass;
+  memInfo.Lines.BeginUpdate;
+
+  try
+    CollectRefs(Used);
+    ValidateNotUsedHTMLs(Used, OutDir);
+    ValidateNotUsedImages(Used, OutDir);
+
+    if memInfo.Lines.Count = 0 then
+      memInfo.Lines.Add('No problems found.');
+  finally
+    memInfo.Lines.EndUpdate;
+    Screen.Cursor := crDefault;
+    Used.Free;
+  end;
 end;
 
 procedure TfrmMain.actCtrlSpaceExecute(Sender: TObject);
@@ -690,6 +738,8 @@ begin
   else
     Project.Save('', AddContents, AddIfEmpty);
 
+  AddRecent(Project.ProjectFile);
+
   if tvProjectTree.Selected = tvProjectTree.Items[0] then
   begin
     ProjectData := TProjectData(tvProjectTree.Items[0].Data);
@@ -964,6 +1014,36 @@ begin
 
   if WithText and (txt = '') then
     seHTML.CaretX := seHTML.CaretX - Length(TagRight);
+end;
+
+procedure TfrmMain.AddInfo(const Kind, Text: String);
+begin
+  memInfo.Lines.Add(Format('%-20s', [Kind + ':']) + Text);
+end;
+
+procedure TfrmMain.AddRecent(const FileName: String);
+var
+  FullName: String;
+  i: Integer;
+begin
+  if FileName = '' then
+    Exit;
+
+  FullName := ExpandFileName(FileName);
+
+  i := slRecent.IndexOf(FullName);
+  if i = 0 then
+    Exit;
+
+  if i > 0 then
+    slRecent.Delete(i);
+
+  slRecent.Insert(0, FullName);
+
+  while slRecent.Count > MaxRecent do
+    slRecent.Delete(slRecent.Count - 1);
+
+  SaveRecent;
 end;
 
 function TfrmMain.AddObject(const Title, FileName: string): TObjectData;
@@ -1252,6 +1332,185 @@ begin
   Application.Title := sTitle;
 end;
 
+// Follows the links from the pages the help opens, through the pages and stylesheets they reference, and reports
+// the broken ones and the anchors not found in their pages; Used gets the full names of all the referenced files
+// that exist
+procedure TfrmMain.CollectRefs(Used: TStringList);
+var
+  Queue, Refs, Problems, Where, PageIds, Ids, Anchors: TStringList;
+  i, j: Integer;
+  PrjDir, FileName, RefFile, Path, Anchor, S: String;
+  Parts: TArray<String>;
+
+  // The same problem in several places is reported once; Source is where it is found, as shown
+  procedure Problem(const Kind, Text, Source: String);
+  var
+    k: Integer;
+  begin
+    k := Problems.IndexOf(Kind + #9 + Text);
+
+    if k < 0 then
+    begin
+      Where := TStringList.Create;
+      Where.Sorted := True;
+      Where.Duplicates := dupIgnore;
+      k := Problems.AddObject(Kind + #9 + Text, Where);
+    end;
+
+    TStringList(Problems.Objects[k]).Add(Source);
+  end;
+
+  // Checked when all the pages are read, as a link may lead to a page that is not read yet
+  procedure AddAnchor(const Page, Anchor, Source: String);
+  begin
+    // #top is the top of the page in browsers, even without such an id
+    if (Anchor <> '') and not SameText(Anchor, 'top') and MatchText(ExtractFileExt(Page), ['.htm', '.html']) then
+      Anchors.Add(Page + #9 + Anchor + #9 + Source);
+  end;
+
+  // Pages and stylesheets are scanned for their links too
+  procedure Use(const FileName: String);
+  begin
+    if Used.IndexOf(FileName) >= 0 then
+      Exit;
+
+    Used.Add(FileName);
+
+    if MatchText(ExtractFileExt(FileName), ['.htm', '.html', '.css']) then
+      Queue.Add(FileName);
+  end;
+
+  // A page the help opens by itself: What is empty for the contents, which ValidateNotUsedHTMLs checks
+  procedure AddRoot(const URL, What: String);
+  begin
+    if not SplitRef(URL, Path, Anchor) or (Path = '') then
+      Exit;
+
+    RefFile := ExpandPath(PrjDir, StringReplace(Path, '/', '\', [rfReplaceAll]));
+
+    if FileExists(RefFile) then
+    begin
+      Use(RefFile);
+      AddAnchor(RefFile, Anchor, IfThen(What = '', 'contents', What));
+    end
+    else if What <> '' then
+      AddInfo('File not found', URL + ' (' + What + ')');
+  end;
+
+  // A link found in FileName, relative to its folder
+  procedure Reference(const Ref, FileName: String);
+  var
+    Source: String;
+  begin
+    Source := RelativePath(PrjDir, FileName);
+
+    if IsCHMLink(Ref) then
+    begin
+      Problem('CHM-only link', Ref, Source);
+      Exit;
+    end;
+
+    if not SplitRef(Ref, Path, Anchor) then
+      Exit;
+
+    if Path = '' then
+    begin
+      AddAnchor(FileName, Anchor, Source); // a link inside the page
+      Exit;
+    end;
+
+    RefFile := ExpandPath(ExtractFilePath(FileName), StringReplace(Path, '/', '\', [rfReplaceAll]));
+
+    if not StartsText(PrjDir, RefFile) then
+      Problem('Outside project', RefFile, Source)
+    else if not FileExists(RefFile) then
+      Problem('Missed file', RelativePath(PrjDir, RefFile), Source)
+    else
+    begin
+      Use(RefFile);
+      AddAnchor(RefFile, Anchor, Source);
+    end;
+  end;
+
+begin
+  PrjDir := IncludeTrailingPathDelimiter(ExpandFileName(Project.PrjDir));
+  Queue := TStringList.Create;
+  Refs := TStringList.Create;
+  Problems := TStringList.Create;
+  Problems.OwnsObjects := True;
+  PageIds := TStringList.Create; // page -> its ids
+  PageIds.Sorted := True;
+  PageIds.OwnsObjects := True;
+  Anchors := TStringList.Create; // page #9 anchor #9 source
+
+  try
+    for i := 1 to tvProjectTree.Items.Count - 1 do
+      AddRoot(TObjectData(tvProjectTree.Items[i].Data).URL, '');
+
+    AddRoot(TProjectData(tvProjectTree.Items[0].Data).slProject.Values['Default topic'], 'default topic');
+    AddRoot(Project.Home, 'Home button');
+    AddRoot(Project.Jump1File, 'Jump 1 button');
+    AddRoot(Project.Jump2File, 'Jump 2 button');
+
+    // Queue grows while it is read
+    i := 0;
+
+    while i < Queue.Count do
+    begin
+      FileName := Queue[i];
+      Inc(i);
+      Refs.Clear;
+
+      if SameText(ExtractFileExt(FileName), '.css') then
+        ExtractCSSRefs(ReadTextFile(FileName), Refs)
+      else
+      begin
+        Ids := TStringList.Create;
+        Ids.CaseSensitive := True; // as in browsers and the WebHelp; the CHM viewer ignores case
+        Ids.Sorted := True;
+        Ids.Duplicates := dupIgnore;
+        PageIds.AddObject(FileName, Ids);
+        ExtractHTMLRefs(ReadTextFile(FileName), Refs, Ids);
+      end;
+
+      for j := 0 to Refs.Count - 1 do
+        Reference(Refs[j], FileName);
+    end;
+
+    for i := 0 to Anchors.Count - 1 do
+    begin
+      Parts := Anchors[i].Split([#9]);
+      j := PageIds.IndexOf(Parts[0]);
+
+      if (j >= 0) and (TStringList(PageIds.Objects[j]).IndexOf(Parts[1]) < 0) then
+        Problem('Missed anchor', RelativePath(PrjDir, Parts[0]) + '#' + Parts[1], Parts[2]);
+    end;
+
+    for i := 0 to Problems.Count - 1 do
+    begin
+      Where := TStringList(Problems.Objects[i]);
+      S := '';
+
+      for j := 0 to Min(Where.Count, 3) - 1 do
+        S := S + ', ' + Where[j];
+
+      Delete(S, 1, 2);
+
+      if Where.Count > 3 then
+        S := S + Format(' and %d more', [Where.Count - 3]);
+
+      j := Pos(#9, Problems[i]);
+      AddInfo(Copy(Problems[i], 1, j - 1), Copy(Problems[i], j + 1, MaxInt) + ' (in ' + S + ')');
+    end;
+  finally
+    Anchors.Free;
+    PageIds.Free;
+    Problems.Free;
+    Refs.Free;
+    Queue.Free;
+  end;
+end;
+
 procedure TfrmMain.dlgFindFind(Sender: TObject);
 var
   Options: TSynSearchOptions;
@@ -1324,6 +1583,14 @@ begin
     seHTML.TabWidth := reg.ReadInteger('', 'TabSize', seHTML.TabWidth);
 
   reg.Free;
+
+  slRecent := TStringList.Create;
+  LoadRecent;
+end;
+
+procedure TfrmMain.FormDestroy(Sender: TObject);
+begin
+  slRecent.Free;
 end;
 
 procedure TfrmMain.FormResize(Sender: TObject);
@@ -1544,10 +1811,34 @@ begin
   begin
     tvProjectTree.Items[0].Expand(False);
     tvProjectTree.Selected := tvProjectTree.Items[0];
+    AddRecent(FileName);
   end;
 
   Self.Caption := sTitle + sVersion + ': ' + ExtractFileName(FileName);
   Application.Title := sTitle + ': ' + ExtractFileName(FileName);
+end;
+
+procedure TfrmMain.LoadRecent;
+var
+  reg: TRegIniFile;
+  i: Integer;
+  s: String;
+begin
+  slRecent.Clear;
+
+  reg := TRegIniFile.Create;
+
+  reg.RootKey := HKEY_CURRENT_USER;
+
+  if reg.OpenKeyReadOnly('Software\CHMer\' + sRecentKey) then
+    for i := 0 to MaxRecent - 1 do
+    begin
+      s := reg.ReadString('', 'File' + IntToStr(i), '');
+      if (s <> '') and (slRecent.IndexOf(s) < 0) then
+        slRecent.Add(s);
+    end;
+
+  reg.Free;
 end;
 
 procedure TfrmMain.memKeyWordsChange(Sender: TObject);
@@ -1780,6 +2071,37 @@ begin
   end;
 end;
 
+procedure TfrmMain.miRecentClearClick(Sender: TObject);
+begin
+  slRecent.Clear;
+  SaveRecent;
+end;
+
+procedure TfrmMain.miRecentClick(Sender: TObject);
+var
+  i: Integer;
+  FileName: String;
+begin
+  i := TMenuItem(Sender).Tag;
+  if (i < 0) or (i >= slRecent.Count) then
+    Exit;
+
+  FileName := slRecent[i];
+
+  if not FileExists(FileName) then
+  begin
+    if MessageDlg('File not found:'#13#10 + FileName + #13#10#13#10'Remove it from the recent list?', mtConfirmation, [mbYes, mbNo],
+      0) = mrYes then
+    begin
+      slRecent.Delete(i);
+      SaveRecent;
+    end;
+    Exit;
+  end;
+
+  LoadProject(FileName);
+end;
+
 procedure TfrmMain.miSaveAsClick(Sender: TObject);
 begin
   if Project.ProjectFile <> '' then
@@ -1839,6 +2161,41 @@ procedure TfrmMain.pmPropertiesPopup(Sender: TObject);
 begin
   miPropertiesAdd.Enabled := Assigned(Project) and (tvProjectTree.Selected = tvProjectTree.Items[0]);
   miPropertiesDelete.Enabled := miPropertiesAdd.Enabled;
+end;
+
+procedure TfrmMain.pmRecentPopup(Sender: TObject);
+var
+  i: Integer;
+  mi: TMenuItem;
+begin
+  // Items are rebuilt here rather than on list change: loading a project from a recent item
+  // updates the list while that item's OnClick is still running.
+  pmRecent.Items.Clear;
+
+  for i := 0 to slRecent.Count - 1 do
+  begin
+    mi := TMenuItem.Create(pmRecent);
+    mi.Caption := Format('&%d  %s', [(i + 1) mod 10, StringReplace(slRecent[i], '&', '&&', [rfReplaceAll])]);
+    mi.Tag := i;
+    mi.OnClick := miRecentClick;
+    pmRecent.Items.Add(mi);
+  end;
+
+  mi := TMenuItem.Create(pmRecent);
+
+  if slRecent.Count = 0 then
+  begin
+    mi.Caption := '(no recent projects)';
+    mi.Enabled := False;
+  end
+  else
+  begin
+    pmRecent.Items.NewBottomLine;
+    mi.Caption := 'Clear list';
+    mi.OnClick := miRecentClearClick;
+  end;
+
+  pmRecent.Items.Add(mi);
 end;
 
 procedure TfrmMain.PropertiesEditBoolean;
@@ -2068,6 +2425,25 @@ begin
   end;
 end;
 
+procedure TfrmMain.SaveRecent;
+var
+  reg: TRegIniFile;
+  i: Integer;
+begin
+  reg := TRegIniFile.Create;
+
+  reg.RootKey := HKEY_CURRENT_USER;
+
+  if reg.OpenKey('Software\CHMer', True) then
+  begin
+    reg.EraseSection(sRecentKey);
+    for i := 0 to slRecent.Count - 1 do
+      reg.WriteString(sRecentKey, 'File' + IntToStr(i), slRecent[i]);
+  end;
+
+  reg.Free;
+end;
+
 procedure TfrmMain.SaveSettingsHHC(hhc: String);
 var
   reg: TRegIniFile;
@@ -2248,106 +2624,98 @@ begin
     TCHMData(Node.Data).Free;
 end;
 
-procedure TfrmMain.ValidateSrcHref;
+procedure TfrmMain.ValidateNotUsedHTMLs(Used: TStringList; const OutDir: String);
 var
-  ObjectData: TObjectData;
-  slHTML: TStringList;
-  rxRef: TRegEx;
-  i, j, k: Integer;
-  S, sRef: string;
-  matches: TMatchCollection;
+  slFiles, slURLs: TStringList;
+  i, j: Integer;
+  PrjDir, URL, Path, Anchor, FileName: String;
 begin
-  slHTML := TStringList.Create;
-  rxRef := TRegEx.Create('src="([^"]+)"|href="([^"]+)"');
+  PrjDir := IncludeTrailingPathDelimiter(ExpandFileName(Project.PrjDir));
+  slFiles := GetFileTree(PrjDir, ['.htm', '.html'], [OutDir]);
+  slURLs := TStringList.Create; // file and anchor of the contents, to find the ones used twice
+  slURLs.Sorted := True;
 
-  for i := 1 to tvProjectTree.Items.Count - 1 do
-  begin
-    ObjectData := TObjectData(tvProjectTree.Items[i].Data);
-
-    if (ObjectData.URL = '') or not FileExists(Project.PrjDir + ObjectData.URL) then
-      Continue;
-
-    slHTML.LoadFromFile(Project.PrjDir + ObjectData.URL);
-
-    for j := 0 to slHTML.Count - 1 do
-      slHTML[j] := AnsiLowerCase(Trim(slHTML[j]));
-
-    S := StringReplace(slHTML.Text, #13#10, ' ', [rfReplaceAll]);
-    S := StringReplace(S, #13, ' ', [rfReplaceAll]);
-    S := StringReplace(S, #10, ' ', [rfReplaceAll]);
-    S := StringReplace(S, '''', '"', [rfReplaceAll]);
-
-    while Pos('  ', S) > 0 do
-      S := StringReplace(S, '  ', ' ', [rfReplaceAll]);
-
-    S := StringReplace(S, ' src =', ' src=', [rfReplaceAll]);
-    S := StringReplace(S, ' href =', ' href=', [rfReplaceAll]);
-    S := StringReplace(S, '= "', '="', [rfReplaceAll]);
-
-    matches := rxRef.Matches(S);
-
-    for j := 0 to matches.Count - 1 do
+  try
+    for i := 1 to tvProjectTree.Items.Count - 1 do
     begin
-      sRef := matches[j].Value;
-      k := Pos('"', sRef);
-      Delete(sRef, 1, k);
-      SetLength(sRef, Length(sRef) - 1);
+      URL := Trim(TObjectData(tvProjectTree.Items[i].Data).URL);
 
-      if (Pos('://', sRef) > 0) or (Pos('mailto:', sRef) > 0) then
+      if not SplitRef(URL, Path, Anchor) or (Path = '') then
         Continue;
 
-      sRef := StringReplace(sRef, '/', '\', [rfReplaceAll]);
+      FileName := ExpandPath(PrjDir, StringReplace(Path, '/', '\', [rfReplaceAll]));
 
-      k := Pos('#', sRef);
-      if k > 0 then
-        SetLength(sRef, k - 1);
+      if not FileExists(FileName) then
+        AddInfo('File not found', URL)
+      else if slURLs.IndexOf(FileName + '#' + Anchor) >= 0 then // other anchors in the same page are fine
+        AddInfo('File is used twice', URL)
+      else
+      begin
+        slURLs.Add(FileName + '#' + Anchor);
+        j := slFiles.IndexOf(FileName);
 
-      if (sRef <> '') and (not FileExists(Project.PrjDir + sRef)) then
-        memInfo.Lines.Add(ObjectData.URL + ': missed file ' + sRef);
+        if j >= 0 then
+          slFiles.Delete(j);
+      end;
     end;
-  end;
 
-  slHTML.Free;
+    // The WebHelp gets only the pages of the contents, so a link to another page breaks there
+    for i := 0 to slFiles.Count - 1 do
+      if Used.IndexOf(slFiles[i]) >= 0 then
+        AddInfo('Not in contents', RelativePath(PrjDir, slFiles[i]) + ' (linked, but missing from WebHelp)')
+      else
+        AddInfo('File not used', RelativePath(PrjDir, slFiles[i]));
+  finally
+    slURLs.Free;
+    slFiles.Free;
+  end;
 end;
 
-procedure TfrmMain.ValidateNotUsedHTMLs;
+procedure TfrmMain.ValidateNotUsedImages(Used: TStringList; const OutDir: String);
+const
+  ImageExts: array [0..7] of String = ('.png', '.gif', '.jpg', '.jpeg', '.bmp', '.ico', '.svg', '.webp');
+  DarkDir = 'dark'; // FOLDER\dark\NAME is the dark theme version of the image FOLDER\NAME, see WebHelp\build_webhelp.py
 var
-  slFiles, slFilesBackup: TStringList;
-  i, j: Integer;
-  ObjectData: TObjectData;
+  slImages: TStringList;
+  i: Integer;
+  PrjDir, FileName, Dir, Regular, Icon: String;
 begin
-  if (not Assigned(Project)) or (Project.PrjDir = '') then
-    Exit;
+  PrjDir := IncludeTrailingPathDelimiter(ExpandFileName(Project.PrjDir));
+  slImages := GetFileTree(PrjDir, ImageExts, [OutDir]);
 
-  slFiles := GetFileList(Project.PrjDir, ['*.html', '*.htm']);
-  slFilesBackup := TStringList.Create;
-  slFilesBackup.Text := slFiles.Text;
+  Icon := Trim(Project.Settings.Values[sWebHelpIcon]);
+  if Icon <> '' then
+    Icon := ExpandPath(PrjDir, Icon);
 
-  for i := 1 to tvProjectTree.Items.Count - 1 do
-  begin
-    ObjectData := TObjectData(tvProjectTree.Items[i].Data);
-
-    if ObjectData.URL <> '' then
+  try
+    for i := 0 to slImages.Count - 1 do
     begin
-      j := slFiles.IndexOf(Trim(ObjectData.URL));
+      FileName := slImages[i];
 
-      if j < 0 then
+      if (Used.IndexOf(FileName) >= 0) or SameText(FileName, Icon) then
+        Continue;
+
+      Dir := ExtractFileDir(FileName);
+
+      if SameText(ExtractFileName(Dir), DarkDir) then
       begin
-        if slFilesBackup.IndexOf(Trim(ObjectData.URL)) > -1 then
-          memInfo.Lines.Add('File is used twice: ' + ObjectData.URL)
-        else
-          memInfo.Lines.Add('File not found:     ' + ObjectData.URL);
-      end
-      else
-        slFiles.Delete(j);
+        Regular := IncludeTrailingPathDelimiter(ExtractFileDir(Dir)) + ExtractFileName(FileName);
+
+        if not FileExists(Regular) then
+        begin
+          AddInfo('No regular image', RelativePath(PrjDir, FileName)); // most likely misnamed
+          Continue;
+        end;
+
+        if Used.IndexOf(Regular) >= 0 then
+          Continue;
+      end;
+
+      AddInfo('Image not used', RelativePath(PrjDir, FileName));
     end;
+  finally
+    slImages.Free;
   end;
-
-  for i := 0 to slFiles.Count - 1 do
-    memInfo.Lines.Add('File not used:      ' + slFiles[i]);
-
-  slFiles.Free;
-  slFilesBackup.Free;
 end;
 
 procedure TfrmMain.wbBrowserBeforeNavigate2(ASender: TObject; const pDisp: IDispatch; const URL, Flags, TargetFrameName, PostData,

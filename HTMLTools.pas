@@ -2,14 +2,28 @@ unit HTMLTools;
 
 interface
 
+uses
+  System.Classes;
+
 function GetTagText(html, tag: String; Convert: Boolean = True): String;
 function FromHTML(html: String): String;
 function ToHTML(S: String; WithoutFrasl: Boolean = False): String;
 
+// The links of CSS text: url() and @import
+procedure ExtractCSSRefs(const Text: String; Refs: TStrings);
+// The links of HTML text: src, href, background, data and poster attributes, url() in style attributes and elements;
+// Ids gets the anchors the text defines: id attributes and names of <a>
+procedure ExtractHTMLRefs(const Text: String; Refs: TStrings; Ids: TStrings = nil);
+// A link into a CHM file (ms-its:, its:, mk:@MSITStore:), which works only in the CHM viewer
+function IsCHMLink(const Ref: String): Boolean;
+// Path and anchor of a link inside the help; False for an external one (with a scheme or //).
+// The path is %-decoded; its slashes are kept as they are
+function SplitRef(const Ref: String; out Path, Anchor: String): Boolean;
+
 implementation
 
 uses
-  System.SysUtils;
+  System.SysUtils, System.StrUtils, System.RegularExpressions, SystemUtils;
 
 const
   codes = 234;
@@ -108,6 +122,143 @@ begin
 
   if WithoutFrasl then
     Result := StringReplace(Result, '&frasl;', '/', [rfReplaceAll]);
+end;
+
+// %XX sequences as UTF-8 bytes; unlike TNetEncoding.URL.Decode it keeps '+', which is valid in a file name
+function DecodePercent(const S: String): String;
+const
+  HexDigits = ['0'..'9', 'a'..'f', 'A'..'F'];
+var
+  Src, Dst: TBytes;
+  i, n: Integer;
+begin
+  if Pos('%', S) = 0 then
+    Exit(S);
+
+  Src := TEncoding.UTF8.GetBytes(S);
+  SetLength(Dst, Length(Src));
+  i := 0;
+  n := 0;
+
+  while i < Length(Src) do
+  begin
+    if (Src[i] = Ord('%')) and (i + 2 < Length(Src)) and CharInSet(Char(Src[i + 1]), HexDigits) and
+      CharInSet(Char(Src[i + 2]), HexDigits) then
+    begin
+      Dst[n] := StrToInt('$' + Char(Src[i + 1]) + Char(Src[i + 2]));
+      Inc(i, 3);
+    end
+    else
+    begin
+      Dst[n] := Src[i];
+      Inc(i);
+    end;
+
+    Inc(n);
+  end;
+
+  Result := DecodeText(Dst, 0, n);
+end;
+
+procedure ExtractCSSRefs(const Text: String; Refs: TStrings);
+const
+  sRef = 'url\(\s*["'']?([^"'')]+)|@import\s+["'']([^"'']+)';
+var
+  Ref: TMatch;
+  i: Integer;
+begin
+  for Ref in TRegEx.Matches(TRegEx.Replace(Text, '/\*.*?\*/', '', [roSingleLine]), sRef, [roIgnoreCase]) do
+    for i := 1 to Ref.Groups.Count - 1 do
+      if Ref.Groups[i].Success and (Trim(Ref.Groups[i].Value) <> '') then
+        Refs.Add(Trim(Ref.Groups[i].Value));
+end;
+
+// The non-empty groups of the matches of Pattern, with the HTML entities decoded
+procedure AddValues(const Text, Pattern: String; Values: TStrings);
+var
+  Value: TMatch;
+  i: Integer;
+begin
+  for Value in TRegEx.Matches(Text, Pattern, [roIgnoreCase]) do
+    for i := 1 to Value.Groups.Count - 1 do
+      if Value.Groups[i].Success and (Value.Groups[i].Value <> '') then
+        Values.Add(FromHTML(Value.Groups[i].Value));
+end;
+
+procedure ExtractHTMLRefs(const Text: String; Refs: TStrings; Ids: TStrings = nil);
+const
+  // A comment, a script or style element, or another start tag
+  sTag = '<!--.*?-->|<script\b[^>]*>.*?</script\s*>|<style\b[^>]*>.*?</style\s*>|<[a-z][^>]*>';
+  sValue = '\s*=\s*(?:"([^"]*)"|''([^'']*)''|([^\s"''>]+))';
+  // The whitespace before the name keeps out data-src and the like
+  sAttr = '\s(?:src|href|background|data|poster)' + sValue;
+  sId = '\sid' + sValue;
+  sName = '\sname' + sValue;
+var
+  Tag: TMatch;
+  S: String;
+begin
+  for Tag in TRegEx.Matches(Text, sTag, [roIgnoreCase, roSingleLine]) do
+  begin
+    S := Tag.Value;
+
+    if StartsText('<!--', S) then
+      Continue;
+
+    if StartsText('<style', S) then
+    begin
+      ExtractCSSRefs(S, Refs);
+      Continue;
+    end;
+
+    if StartsText('<script', S) then
+      SetLength(S, Pos('>', S)); // the start tag only: the code may contain anything
+
+    AddValues(S, sAttr, Refs);
+    ExtractCSSRefs(S, Refs); // url() in a style attribute
+
+    if Assigned(Ids) then
+    begin
+      AddValues(S, sId, Ids);
+
+      if TRegEx.IsMatch(S, '^<a\s', [roIgnoreCase]) then // name of <param>, <input>... is not an anchor
+        AddValues(S, sName, Ids);
+    end;
+  end;
+end;
+
+function IsCHMLink(const Ref: String): Boolean;
+begin
+  Result := TRegEx.IsMatch(Trim(Ref), '^(mk:@msitstore|ms-its|its):', [roIgnoreCase]);
+end;
+
+function SplitRef(const Ref: String; out Path, Anchor: String): Boolean;
+var
+  k: Integer;
+begin
+  Path := Trim(Ref);
+  Anchor := '';
+
+  // Two letters at least before the colon: C:\file is a (broken) local file, not a scheme
+  Result := (Path <> '') and not StartsText('//', Path) and not TRegEx.IsMatch(Path, '^[a-z][a-z0-9+.-]+:', [roIgnoreCase]);
+
+  if not Result then
+    Exit;
+
+  k := Pos('#', Path);
+
+  if k > 0 then
+  begin
+    Anchor := Copy(Path, k + 1, MaxInt);
+    SetLength(Path, k - 1);
+  end;
+
+  k := Pos('?', Path);
+
+  if k > 0 then
+    SetLength(Path, k - 1);
+
+  Path := DecodePercent(Path);
 end;
 
 end.
